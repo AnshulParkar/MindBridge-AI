@@ -1,9 +1,5 @@
 {
   "/favicon.ico/route": "app/favicon.ico/route.js",
-  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
-  "/auth/signin/page": "app/auth/signin/page.js",
-  "/patient/dashboard/page": "app/patient/dashboard/page.js",
-  "/patient/session/page": "app/patient/session/page.js",
-  "/therapist/dashboard/page": "app/therapist/dashboard/page.js",
-  "/therapist/schedule/page": "app/therapist/schedule/page.js"
+  "/page": "app/page.js",
+  "/auth/signin/page": "app/auth/signin/page.js"
 }

@@ -1,4 +1,4 @@
-// File: C:\Users\Anshul Parkar\Documents\GitHub\Emotion-Aware-AI-Therapist\WEBAPP\src\app\api\auth\[...nextauth]\route.ts
+// File: C:\Users\Anshul Parkar\Desktop\MindBridge\WEBAPP\src\app\api\auth\[...nextauth]\route.ts
 import * as entry from '../../../../../../src/app/api/auth/[...nextauth]/route.js'
 import type { NextRequest } from 'next/server.js'
 

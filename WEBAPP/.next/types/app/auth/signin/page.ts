@@ -1,4 +1,4 @@
-// File: C:\Users\Anshul Parkar\Documents\GitHub\Emotion-Aware-AI-Therapist\WEBAPP\src\app\auth\signin\page.tsx
+// File: C:\Users\Anshul Parkar\Desktop\MindBridge\WEBAPP\src\app\auth\signin\page.tsx
 import * as entry from '../../../../../src/app/auth/signin/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
