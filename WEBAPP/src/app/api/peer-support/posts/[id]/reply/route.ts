@@ -1,68 +1,99 @@
-import { NextRequest, NextResponse } from 'next/server';
-import clientPromise from '@/lib/mongodb';
-import { PeerSupportPost, Reply, validateReplyData } from '@/models/PeerSupport';
-import { ObjectId } from 'mongodb';
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/db";
 
+/**
+ * Helper to generate an anonymous student ID.
+ */
 function generateAnonymousId(): string {
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const numbers = '0123456789';
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const numbers = "0123456789";
   const letterPart = letters.charAt(Math.floor(Math.random() * letters.length));
-  const numberPart = Array.from({length: 3}, () => numbers.charAt(Math.floor(Math.random() * numbers.length))).join('');
+  const numberPart = Array.from({ length: 3 }, () =>
+    numbers.charAt(Math.floor(Math.random() * numbers.length))
+  ).join("");
   return `Student_${letterPart}${numberPart}`;
 }
 
+/**
+ * POST: Add a reply to a peer support post
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const client = await clientPromise;
-    const db = client.db();
-    const collection = db.collection<PeerSupportPost>('peer_support_posts');
-    
     const { id } = await params;
     const body = await request.json();
     const { content, isVolunteer = false } = body;
-    
-    // Validation
+
+    // ✅ Validation
     const validation = validateReplyData({ content });
     if (!validation.isValid) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
-    
-    // Check if post exists
-    const postExists = await collection.findOne({ _id: new ObjectId(id), isActive: true });
-    if (!postExists) {
-      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+
+    // ✅ Check if post exists and active
+    const post = await prisma.peerSupportPost.findUnique({
+      where: { id },
+    });
+
+    if (!post || !post.isActive) {
+      return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
-    
-    const reply: Reply = {
-      _id: new ObjectId(),
-      content: content.trim(),
-      isVolunteer,
-      anonymousId: generateAnonymousId(),
-      timestamp: new Date()
-    };
-    
-    const updatedPost = await collection.findOneAndUpdate(
-      { _id: new ObjectId(id) },
-      { 
-        $push: { replies: reply },
-        $set: { updatedAt: new Date() }
+
+    // ✅ Create reply - Use Prisma's proper nested create
+    const updatedPost = await prisma.peerSupportPost.update({
+      where: { id },
+      data: {
+        replies: {
+          create: {
+            content: content.trim(),
+            isVolunteer,
+            anonymousId: generateAnonymousId(),
+          }
+        },
+        updatedAt: new Date(),
       },
-      { returnDocument: 'after' }
-    );
-    
-    if (!updatedPost) {
-      return NextResponse.json({ error: 'Failed to add reply' }, { status: 500 });
-    }
-    
+      include: {
+        replies: {
+          orderBy: { timestamp: 'asc' }
+        }
+      }
+    });
+
     return NextResponse.json({ post: updatedPost });
   } catch (error) {
-    console.error('Error adding reply:', error);
-    if (error instanceof Error && error.message.includes('ObjectId')) {
-      return NextResponse.json({ error: 'Invalid post ID' }, { status: 400 });
+    console.error("Error adding reply:", error);
+    if (error instanceof Error && error.message.includes("Invalid")) {
+      return NextResponse.json({ error: "Invalid post ID" }, { status: 400 });
     }
-    return NextResponse.json({ error: 'Failed to add reply' }, { status: 500 });
+    return NextResponse.json({ error: "Failed to add reply" }, { status: 500 });
   }
+}
+
+interface ValidationResult {
+  isValid: boolean;
+  error?: string;
+}
+
+interface ReplyData {
+  content: string;
+}
+
+export function validateReplyData(data: ReplyData): ValidationResult {
+  if (!data.content || typeof data.content !== "string") {
+    return { isValid: false, error: "Content is required." };
+  }
+
+  const trimmed = data.content.trim();
+
+  if (trimmed.length < 5) {
+    return { isValid: false, error: "Reply must be at least 5 characters long." };
+  }
+
+  if (trimmed.length > 1000) {
+    return { isValid: false, error: "Reply is too long (max 1000 characters)." };
+  }
+
+  return { isValid: true };
 }

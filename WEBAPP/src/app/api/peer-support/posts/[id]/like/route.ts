@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import clientPromise from '@/lib/mongodb';
-import { PeerSupportPost } from '@/models/PeerSupport';
-import { ObjectId } from 'mongodb';
+import prisma from '@/lib/db';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const client = await clientPromise;
-    const db = client.db();
-    const collection = db.collection<PeerSupportPost>('peer_support_posts');
-    
     const { id } = await params;
     const body = await request.json();
     const { increment } = body;
@@ -21,44 +15,44 @@ export async function POST(
     }
     
     // Check if post exists
-    const postExists = await collection.findOne({ _id: new ObjectId(id), isActive: true });
+    const postExists = await prisma.peerSupportPost.findUnique({ 
+      where: { id, isActive: true } 
+    });
+    
     if (!postExists) {
       return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     }
-    
-    const updateQuery = increment 
-      ? { $inc: { likes: 1 } }
-      : { $inc: { likes: -1 } };
-    
-    const updatedPost = await collection.findOneAndUpdate(
-      { _id: new ObjectId(id) },
-      {
+
+    const updateQuery = increment
+      ? { likes: { increment: 1 } }
+      : { likes: { decrement: 1 } };
+
+    const updatedPost = await prisma.peerSupportPost.update({
+      where: { id },
+      data: {
         ...updateQuery,
-        $set: { updatedAt: new Date() }
+        updatedAt: new Date()
       },
-      { returnDocument: 'after' }
-    );
-    
-    if (!updatedPost || !updatedPost.value) {
-      return NextResponse.json({ error: 'Failed to update likes' }, { status: 500 });
-    }
-    
+      include: {
+        replies: true
+      }
+    });
+
     // Ensure likes don't go below 0
-    if (updatedPost.value.likes < 0) {
-      const fixedPost = await collection.findOneAndUpdate(
-        { _id: new ObjectId(id) },
-        { $set: { likes: 0, updatedAt: new Date() } },
-        { returnDocument: 'after' }
-      );
-      return NextResponse.json({ post: fixedPost?.value });
+    if (updatedPost.likes < 0) {
+      const fixedPost = await prisma.peerSupportPost.update({
+        where: { id },
+        data: { likes: 0, updatedAt: new Date() },
+        include: {
+          replies: true
+        }
+      });
+      return NextResponse.json({ post: fixedPost });
     }
-    
-    return NextResponse.json({ post: updatedPost.value });
+
+    return NextResponse.json({ post: updatedPost });
   } catch (error) {
     console.error('Error updating likes:', error);
-    if (error instanceof Error && error.message.includes('ObjectId')) {
-      return NextResponse.json({ error: 'Invalid post ID' }, { status: 400 });
-    }
     return NextResponse.json({ error: 'Failed to update likes' }, { status: 500 });
   }
 }

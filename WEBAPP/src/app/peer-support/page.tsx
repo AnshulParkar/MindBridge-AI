@@ -5,9 +5,9 @@ import { MessageCircle, Send, Heart, AlertTriangle, Flag, Clock, Users, Filter, 
 import { useTheme } from '@/contexts/ThemeContext';
 import ThemeToggle from '@/components/ThemeToggle';
 
-// Interface for MongoDB posts
+// Interface for Prisma/MySQL posts
 interface Post {
-  _id: string;
+  id: string;
   content: string;
   category: string;
   likes: number;
@@ -18,7 +18,7 @@ interface Post {
 }
 
 interface Reply {
-  _id: string;
+  id: string;
   content: string;
   timestamp: string;
   isVolunteer: boolean;
@@ -361,7 +361,7 @@ function App() {
             </div>
           ) : (
             filteredPosts.map(post => (
-              <div key={post._id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border dark:border-gray-700 p-4 sm:p-6 transition-colors duration-300">
+              <div key={post.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border dark:border-gray-700 p-4 sm:p-6 transition-colors duration-300">
                 {/* Post Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
@@ -405,18 +405,18 @@ function App() {
                 {/* Post Actions */}
                 <div className="flex items-center gap-4 mb-4 text-sm">
                   <button
-                    onClick={() => toggleLike(post._id)}
+                    onClick={() => toggleLike(post.id)}
                     className={`flex items-center gap-2 font-medium transition-colors duration-200 ${
-                      likedPosts.has(post._id) 
+                      likedPosts.has(post.id) 
                         ? 'text-red-500 hover:text-red-600' 
                         : 'text-gray-500 dark:text-gray-400 hover:text-red-500'
                     }`}
                   >
-                    <Heart size={16} fill={likedPosts.has(post._id) ? 'currentColor' : 'none'} />
+                    <Heart size={16} fill={likedPosts.has(post.id) ? 'currentColor' : 'none'} />
                     {post.likes} Support{post.likes !== 1 ? 's' : ''}
                   </button>
                   <button
-                    onClick={() => setReplyingTo(replyingTo === post._id ? null : post._id)}
+                    onClick={() => setReplyingTo(replyingTo === post.id ? null : post.id)}
                     className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors duration-200"
                   >
                     <MessageCircle size={16} />
@@ -428,7 +428,7 @@ function App() {
                 {post.replies.length > 0 && (
                   <div className="space-y-3 border-l-2 border-gray-200 dark:border-gray-700 ml-6 pl-4">
                     {post.replies.slice(0, 3).map(reply => (
-                      <div key={reply._id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <div key={reply.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                         <div className="flex items-start gap-2 mb-2">
                           <div 
                             className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
@@ -465,7 +465,7 @@ function App() {
                 )}
 
                 {/* Reply Form */}
-                {replyingTo === post._id && (
+                {replyingTo === post.id && (
                   <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
                       <textarea
@@ -490,7 +490,7 @@ function App() {
                             Cancel
                           </button>
                           <button
-                            onClick={() => handleReplySubmit(post._id)}
+                            onClick={() => handleReplySubmit(post.id)}
                             disabled={!newReply.trim()}
                             className="px-4 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                           >

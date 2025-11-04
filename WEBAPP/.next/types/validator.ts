@@ -107,6 +107,24 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   handler satisfies RouteHandlerConfig<"/api/auth/register">
 }
 
+// Validate ../../src/app/api/chat/messages/route.ts
+{
+  const handler = {} as typeof import("../../src/app/api/chat/messages/route.js")
+  handler satisfies RouteHandlerConfig<"/api/chat/messages">
+}
+
+// Validate ../../src/app/api/chat/sessions/[sessionId]/messages/route.ts
+{
+  const handler = {} as typeof import("../../src/app/api/chat/sessions/[sessionId]/messages/route.js")
+  handler satisfies RouteHandlerConfig<"/api/chat/sessions/[sessionId]/messages">
+}
+
+// Validate ../../src/app/api/chat/sessions/route.ts
+{
+  const handler = {} as typeof import("../../src/app/api/chat/sessions/route.js")
+  handler satisfies RouteHandlerConfig<"/api/chat/sessions">
+}
+
 // Validate ../../src/app/api/peer-support/posts/[id]/like/route.ts
 {
   const handler = {} as typeof import("../../src/app/api/peer-support/posts/[id]/like/route.js")

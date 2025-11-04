@@ -1,11 +1,11 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { MongoDBAdapter } from "@next-auth/mongodb-adapter";
-import clientPromise from "@/lib/mongodb";
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
+import prisma from "@/lib/db";
 import { compare } from "bcryptjs";
 
 const handler = NextAuth({
-	adapter: MongoDBAdapter(clientPromise),
+	adapter: PrismaAdapter(prisma),
 	session: {
 		strategy: "jwt",
 		maxAge: 30 * 24 * 60 * 60, // 30 days (automatic expiration)
@@ -50,16 +50,24 @@ const handler = NextAuth({
 				role: { label: "Role", type: "text" },
 			},
 			async authorize(credentials) {
-				const client = await clientPromise;
-				const db = client.db(process.env.DATABASE_NAME || "ai_therapist");
-				const user = await db
-					.collection("users")
-					.findOne({ email: credentials?.email, role: credentials?.role });
+				if (!credentials?.email || !credentials?.password) {
+					return null;
+				}
+
+				const user = await prisma.user.findFirst({
+					where: {
+						email: credentials.email,
+						role: credentials.role || "patient",
+					},
+				});
+
 				if (!user) return null;
-				const isValid = await compare(credentials!.password, user.password);
+
+				const isValid = await compare(credentials.password, user.password);
 				if (!isValid) return null;
+
 				return {
-					id: user._id.toString(),
+					id: user.id,
 					email: user.email,
 					role: user.role,
 				};

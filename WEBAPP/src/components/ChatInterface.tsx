@@ -1,47 +1,45 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
+import { useSession } from 'next-auth/react';
 import { useChat } from '../hooks/useChat';
 
-// Simple icon components to replace lucide-react
-const SendIcon = () => <span className="text-xl">➤</span>;
-const LoaderIcon = () => <span className="animate-spin text-xl">⟳</span>;
-const BotIcon = () => <span className="text-xl">🤖</span>;
-const UserIcon = () => <span className="text-xl">👤</span>;
 
 interface Message {
   id: string;
   role: 'user' | 'therapist';
   content: string;
-  emotion?: string;
   timestamp: Date;
   audioUrl?: string;
   avatarUrl?: string;
 }
 
 interface ChatInterfaceProps {
-  currentEmotion?: string;
-  // userId?: string;  // Commented out
-  // sessionId?: string;  // Commented out
+  userId?: string;
+  sessionId?: string;
   enableTTS?: boolean;
   enableAvatar?: boolean;
   onAvatarResponse?: (avatarUrl?: string, audioUrl?: string) => void;
   onAvatarGenerationStart?: () => void;
+  onMessagesLoad?: (messages: Message[]) => void;
   className?: string;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
-  currentEmotion,
-  // userId,  // Commented out
-  // sessionId,  // Commented out
+  userId,  
+  sessionId,
   enableTTS = false,
   enableAvatar = false,
   onAvatarResponse,
   onAvatarGenerationStart,
+  onMessagesLoad,
   className = '',
 }) => {
   const [inputMessage, setInputMessage] = useState('');
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { data: session } = useSession();
   
   const {
     messages,
@@ -49,13 +47,80 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     error,
     sendMessage,
   } = useChat({
-    // sessionId,  // Commented out
-    // userId,  // Commented out
     enableTTS,
     enableAvatar,
     onAvatarResponse,
     onAvatarGenerationStart,
   });
+
+  // Load messages when sessionId changes
+  useEffect(() => {
+    if (sessionId) {
+      loadSessionMessages(sessionId);
+    } else {
+      setLocalMessages([]);
+    }
+  }, [sessionId]);
+
+  // Update local messages when chat messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      setLocalMessages(messages);
+      onMessagesLoad?.(messages);
+    }
+  }, [messages, onMessagesLoad]);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [localMessages]);
+
+  // Load messages from database for a session
+  const loadSessionMessages = async (sessionId: string) => {
+    try {
+      const response = await fetch(`/api/chat/sessions/${sessionId}/messages`);
+      if (response.ok) {
+        const data = await response.json();
+        const formattedMessages: Message[] = data.messages.map((msg: any) => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          timestamp: new Date(msg.timestamp),
+          audioUrl: msg.metadata?.audioUrl,
+          avatarUrl: msg.metadata?.avatarUrl,
+        }));
+        setLocalMessages(formattedMessages);
+        onMessagesLoad?.(formattedMessages);
+      }
+    } catch (error) {
+      console.error('Error loading session messages:', error);
+    }
+  };
+
+  // Function to save message to database
+  const saveMessageToDatabase = async (content: string, role: 'user' | 'therapist', metadata?: any) => {
+    if (!sessionId) return;
+    
+    try {
+      const response = await fetch(`/api/chat/sessions/${sessionId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content,
+          role,
+          metadata,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Failed to save message to database');
+      }
+    } catch (error) {
+      console.error('Error saving message:', error);
+    }
+  };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,29 +129,24 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     const message = inputMessage;
     setInputMessage('');
     
-    await sendMessage(message, currentEmotion);
+    // Send message via chat hook
+    const response = await sendMessage(message);
+    
+    // Save both user and therapist messages to database (only if sessionId exists)
+    if (session?.user && sessionId) {
+      // Save user message
+      await saveMessageToDatabase(message, 'user');
+      
+      // Save therapist response if we got one
+      if (response) {
+        await saveMessageToDatabase(response.content, 'therapist', {
+          audioUrl: response.audioUrl,
+          avatarUrl: response.avatarUrl,
+        });
+      }
+    }
   };
 
-  // const scrollToBottom = () => {
-  //   messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  // };
-
-  // useEffect(() => {
-  //   scrollToBottom();
-  // }, [messages]);
-
-  // const getEmotionEmoji = (emotion?: string): string => {
-  //   const emotionEmojis: Record<string, string> = {
-  //     happy: '😊',
-  //     sad: '😢',
-  //     angry: '😠',
-  //     fearful: '😰',
-  //     surprised: '😲',
-  //     disgusted: '🤢',
-  //     neutral: '😐',
-  //   };
-  //   return emotion ? emotionEmojis[emotion.toLowerCase()] || '🤔' : '🤔';
-  // };
 
   const formatTime = (timestamp: Date): string => {
     return timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -95,22 +155,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   return (
     <div className={`flex flex-col h-full ${className}`}>
       {/* Chat Header */}
-      <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 p-4 transition-colors duration-300">
+      {/* <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 p-4 transition-colors duration-300">
         <h2 className="text-xl font-semibold text-gray-800 dark:text-white">AI Therapist Chat</h2>
         
-        {/* {currentEmotion && (
-          <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-            Current mood: {getEmotionEmoji(currentEmotion)} 
-            <span className="capitalize ml-1">{currentEmotion}</span>
-          </p>
-        )} */}
-      </div>
+      </div> */}
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-        {messages.length === 0 && (
+      <div className="flex-1 overflow-y-auto p-4 space-x-1 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+        {localMessages.length === 0 && (
           <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-            <div className="text-4xl mb-4">🧠</div>
+            <div className="flex justify-center text-4xl mb-4"><Image src="/logo.png" alt="Logo" width={50} height={50} /></div>
             <p className="text-lg font-medium">Welcome to MindBridge</p>
             <p className="text-sm mt-2">
               I&apos;m here to listen and support you. Share what&apos;s on your mind.
@@ -118,7 +172,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </div>
         )}
 
-        {messages.map((message) => (
+        {localMessages.map((message) => (
           <div
             key={message.id}
             className={`flex ${
@@ -202,12 +256,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </button>
         </form>
         
-        {currentEmotion && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-            Messages are enhanced with emotion context: 
-            {/* {getEmotionEmoji(currentEmotion)} {currentEmotion} */}
-          </p>
-        )}
+       
       </div>
     </div>
   );

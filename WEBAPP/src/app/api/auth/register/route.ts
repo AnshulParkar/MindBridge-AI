@@ -1,6 +1,6 @@
 
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import prisma from "@/lib/db";
 import { hash } from "bcryptjs";
 import { z } from "zod";
 
@@ -17,22 +17,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid input", details: result.error.flatten() }, { status: 400 });
     }
     const { email, password, role } = result.data;
-    const client = await clientPromise;
-    const db = client.db(process.env.DATABASE_NAME || "ai_therapist");
-    const existing = await db.collection("users").findOne({ email, role });
+    
+    const existing = await prisma.user.findFirst({
+      where: {
+        email,
+        role,
+      },
+    });
+
     if (existing) {
       return NextResponse.json({ error: "User already exists" }, { status: 409 });
     }
+
     const hashed = await hash(password, 10);
-    const user = {
-      email,
-      password: hashed,
-      role, // "patient" or "therapist"
-      createdAt: new Date(),
-    };
-    await db.collection("users").insertOne(user);
+    
+    await prisma.user.create({
+      data: {
+        email,
+        password: hashed,
+        role,
+      },
+    });
+
     return NextResponse.json({ message: "User registered" }, { status: 201 });
   } catch (e) {
+    console.error('Registration error:', e);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
