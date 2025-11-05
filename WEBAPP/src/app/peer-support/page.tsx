@@ -219,12 +219,12 @@ function App() {
               </h1>
                 <p className="text-sm text-gray-600 dark:text-gray-300">Safe space for student support</p>
               </div>
-              <button
-              onClick={() => window.location.href = '/'}
-              className="ml-4 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center gap-2"
-              >
-              Main Page
-              </button>
+                <button
+                onClick={() => window.location.href = '/'}
+                className="ml-4 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center gap-2"
+                >
+                HOME
+                </button>
             </div>
             <div className="flex items-center gap-2 sm:gap-4">
               <ThemeToggle />

@@ -142,7 +142,15 @@ function validatePostData({ content, category }: { content: any; category: any; 
     return { isValid: false, error: 'Category is required and must be a string' };
   }
 
-  const validCategories = ['academic', 'social', 'mental-health', 'career', 'general'];
+  const validCategories = [
+    'general',
+    'academic-stress',
+    'social-emotional',
+    'time-management',
+    'career-anxiety',
+    'relationships',
+    'health-wellness'
+  ];
   if (!validCategories.includes(category)) {
     return { isValid: false, error: 'Invalid category' };
   }

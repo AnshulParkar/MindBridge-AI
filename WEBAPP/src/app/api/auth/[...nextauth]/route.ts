@@ -11,6 +11,7 @@ const handler = NextAuth({
 		maxAge: 30 * 24 * 60 * 60, // 30 days (automatic expiration)
 		updateAge: 24 * 60 * 60,    // 24 hours (refresh session if user is active)
 	},
+	// Use default cookie settings for better ngrok compatibility
 	cookies: {
 		sessionToken: {
 			name: `next-auth.session-token`,
@@ -18,7 +19,8 @@ const handler = NextAuth({
 				httpOnly: true,
 				sameSite: 'lax',
 				path: '/',
-				secure: process.env.NODE_ENV === 'production',
+				// Allow cookies over HTTP for ngrok testing
+				secure: process.env.NEXTAUTH_URL?.startsWith('https://') ?? false,
 				maxAge: 30 * 24 * 60 * 60, // 30 days
 			}
 		},
@@ -28,7 +30,7 @@ const handler = NextAuth({
 				httpOnly: true,
 				sameSite: 'lax',
 				path: '/',
-				secure: process.env.NODE_ENV === 'production',
+				secure: process.env.NEXTAUTH_URL?.startsWith('https://') ?? false,
 			}
 		},
 		csrfToken: {
@@ -37,10 +39,12 @@ const handler = NextAuth({
 				httpOnly: true,
 				sameSite: 'lax',
 				path: '/',
-				secure: process.env.NODE_ENV === 'production',
+				secure: process.env.NEXTAUTH_URL?.startsWith('https://') ?? false,
 			}
 		}
 	},
+	// Trust proxy for ngrok
+	useSecureCookies: process.env.NEXTAUTH_URL?.startsWith('https://') ?? false,
 	providers: [
 		CredentialsProvider({
 			name: "Credentials",
