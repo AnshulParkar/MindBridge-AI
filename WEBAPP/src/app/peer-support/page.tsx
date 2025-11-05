@@ -215,10 +215,16 @@ function App() {
               <MessageCircle size={32} className="text-blue-600 dark:text-blue-400" />
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                  Peer Support Community
-                </h1>
+              Peer Support Community
+              </h1>
                 <p className="text-sm text-gray-600 dark:text-gray-300">Safe space for student support</p>
               </div>
+              <button
+              onClick={() => window.location.href = '/'}
+              className="ml-4 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center gap-2"
+              >
+              Main Page
+              </button>
             </div>
             <div className="flex items-center gap-2 sm:gap-4">
               <ThemeToggle />
@@ -248,22 +254,7 @@ function App() {
       </header>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">{/* Rest of content will continue... */}
-        {/* Database Connected Banner */}
-        {/* <div style={{ 
-          backgroundColor: '#D1FAE5',
-          border: '1px solid #10B981',
-          borderRadius: '0.75rem',
-          padding: '1rem',
-          marginBottom: '1.5rem'
-        }}>
-          <h3 style={{ margin: '0 0 0.5rem 0', color: '#047857', fontSize: '1rem' }}>
-            🗄️ Database Connected
-          </h3>
-          <p style={{ margin: 0, color: '#047857', fontSize: '0.9rem' }}>
-            Peer support posts are now stored in MongoDB with timestamps and anonymous IDs.
-            All data persists between sessions and is fully functional.
-          </p>
-        </div> */}
+        
 
         {/* Filters and Search */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border dark:border-gray-700 p-4 sm:p-6 mb-6 transition-colors duration-300">
