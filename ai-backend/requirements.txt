@@ -1,64 +1,81 @@
-# Core FastAPI and web framework
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.9.2
-# pydantic-core==2.10.1  # Commented out to avoid Rust compilation
-starlette==0.27.0
+# # Core FastAPI and web framework
+# fastapi==0.104.1
+# uvicorn[standard]==0.24.0
+# pydantic==2.9.2
+# # pydantic-core==2.10.1  # Commented out to avoid Rust compilation
+# starlette==0.27.0
 
-# AI integration  
-google-generativeai==0.8.3
-groq==0.8.0
-openai==1.3.0
-tiktoken==0.11.0
+# # AI integration  
+# google-generativeai==0.8.3
+# groq==0.8.0
+# openai==1.3.0
+# tiktoken==0.11.0
 
-# Database (MongoDB) - commented out for now
-# motor==3.7.1
-# pymongo==4.14.1
-# dnspython==2.7.0
+# # Database (MongoDB) - commented out for now
+# # motor==3.7.1
+# # pymongo==4.14.1
+# # dnspython==2.7.0
 
-# HTTP clients and async support
-httpx==0.25.2
-httpcore==1.0.9
-aiofiles==23.2.1
-anyio==3.7.1
+# # HTTP clients and async support
+# httpx==0.25.2
+# httpcore==1.0.9
+# aiofiles==23.2.1
+# anyio==3.7.1
 
-# Audio processing for TTS
-soundfile==0.13.1
-numpy==2.3.2
+# # Audio processing for TTS
+# soundfile==0.13.1
+# numpy==2.3.2
 
-# Security and authentication
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
-cryptography==45.0.7
-bcrypt==4.0.1
+# # Security and authentication
+# python-jose[cryptography]==3.3.0
+# passlib[bcrypt]==1.7.4
+# python-multipart==0.0.6
+# cryptography==45.0.7
+# bcrypt==4.0.1
 
-# Environment and configuration
-python-dotenv==1.0.0
+# # Environment and configuration
+# python-dotenv==1.0.0
 
-# Additional utilities
-requests==2.31.0
-certifi==2025.8.3
-charset-normalizer==3.4.3
-urllib3==2.5.0
-idna==3.10
-click==8.2.1
-h11==0.16.0
-sniffio==1.3.1
-typing-extensions==4.15.0
+# # Additional utilities
+# requests==2.31.0
+# certifi==2025.8.3
+# charset-normalizer==3.4.3
+# urllib3==2.5.0
+# idna==3.10
+# click==8.2.1
+# h11==0.16.0
+# sniffio==1.3.1
+# typing-extensions==4.15.0
 
-# Regex support
-regex==2025.9.1
+# # Regex support
+# regex==2025.9.1
 
-# Progress bars and utilities
-tqdm==4.67.1
+# # Progress bars and utilities
+# tqdm==4.67.1
 
-# Runtime dependencies
-cffi==1.17.1
-pycparser==2.22
-pyasn1==0.6.1
-ecdsa==0.19.1
-rsa==4.9.1
-six==1.17.0
-distro==1.9.0
-annotated-types==0.7.0
+# # Runtime dependencies
+# cffi==1.17.1
+# pycparser==2.22
+# pyasn1==0.6.1
+# ecdsa==0.19.1
+# rsa==4.9.1
+# six==1.17.0
+# distro==1.9.0
+# annotated-types==0.7.0
+
+
+
+
+
+sentence-transformers==5.1.2
+# langchain
+flask
+pypdf
+python-dotenv
+pinecone[grpc]
+langchain-pinecone
+langchain_community
+langchain_openai
+langchain-groq
+langchain_experimental
+langchain-text-splitters
