@@ -79,6 +79,7 @@ const Dashboard: React.FC = () => {
   const [sessions, setSessions] = useState<SessionData[]>([])
   const [patients, setPatients] = useState<PatientData[]>([])
   const [appointments, setAppointments] = useState<AppointmentData[]>([])
+  const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
     totalPatients: 0,
     totalSessions: 0,
@@ -88,7 +89,88 @@ const Dashboard: React.FC = () => {
     avgSessionDuration: 0,
   })
 
-  // Mock data for demonstration
+  // Fetch real data from API
+  useEffect(() => {
+    if (!session?.user?.id) return
+
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const therapistId = session.user.id
+
+        // Fetch sessions
+        const sessionsRes = await fetch(`/api/therapy/sessions?therapistId=${therapistId}`)
+        const sessionsData = await sessionsRes.json()
+
+        // Fetch appointments
+        const appointmentsRes = await fetch(`/api/therapy/appointments?therapistId=${therapistId}`)
+        const appointmentsData = await appointmentsRes.json()
+
+        // Fetch patients
+        const patientsRes = await fetch(`/api/therapy/patients?therapistId=${therapistId}`)
+        const patientsData = await patientsRes.json()
+
+        // Transform data to match interface
+        const transformedSessions = sessionsData.map((s: any) => ({
+          id: s.id,
+          userId: s.patientId,
+          patientName: s.patient.name || "Unknown",
+          patientEmail: s.patient.email,
+          startTime: new Date(s.startTime),
+          duration: s.duration,
+          emotionsSummary: s.emotionsSummary || {},
+          messageCount: s.messageCount,
+          status: s.status,
+        }))
+
+        const transformedAppointments = appointmentsData.map((a: any) => ({
+          id: a.id,
+          patientName: a.patient.name || "Unknown",
+          patientEmail: a.patient.email,
+          scheduledTime: new Date(a.scheduledTime),
+          duration: a.duration,
+          status: a.status,
+          notes: a.notes,
+        }))
+
+        const transformedPatients = patientsData.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          email: p.email,
+          totalSessions: p.totalSessions,
+          lastSession: p.lastSession ? new Date(p.lastSession) : new Date(),
+          dominantEmotion: p.dominantEmotion,
+          improvementTrend: p.improvementTrend,
+        }))
+
+        setSessions(transformedSessions)
+        setAppointments(transformedAppointments)
+        setPatients(transformedPatients)
+
+        // Calculate stats
+        const completed = transformedSessions.filter((s: any) => s.status === "completed")
+        const totalDuration = completed.reduce((sum: number, s: any) => sum + s.duration, 0)
+        const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+
+        setStats({
+          totalPatients: transformedPatients.length,
+          totalSessions: completed.length,
+          totalDuration,
+          weeklyAppointments: transformedAppointments.length,
+          activePatients: transformedPatients.filter((p: any) => p.lastSession > oneWeekAgo).length,
+          avgSessionDuration: completed.length > 0 ? Math.round(totalDuration / completed.length / 60) : 0,
+        })
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [session])
+
+  // Keep mock data for initial display (will be replaced by real data)
   useEffect(() => {
     const mockSessions: SessionData[] = [
       {
@@ -262,6 +344,57 @@ const Dashboard: React.FC = () => {
       default:
         return <Activity className="h-4 w-4 text-gray-500" />
     }
+  }
+
+  const handleConfirmAppointment = async (appointmentId: string) => {
+    try {
+      const res = await fetch(`/api/therapy/appointments/${appointmentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "confirmed" }),
+      })
+
+      if (res.ok) {
+        // Refresh appointments
+        const updatedAppointment = await res.json()
+        setAppointments((prev) =>
+          prev.map((apt) => (apt.id === appointmentId ? { ...apt, status: updatedAppointment.status } : apt))
+        )
+      }
+    } catch (error) {
+      console.error("Error confirming appointment:", error)
+    }
+  }
+
+  const handleCancelAppointment = async (appointmentId: string) => {
+    try {
+      const res = await fetch(`/api/therapy/appointments/${appointmentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      })
+
+      if (res.ok) {
+        // Refresh appointments
+        const updatedAppointment = await res.json()
+        setAppointments((prev) =>
+          prev.map((apt) => (apt.id === appointmentId ? { ...apt, status: updatedAppointment.status } : apt))
+        )
+      }
+    } catch (error) {
+      console.error("Error cancelling appointment:", error)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading dashboard...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -679,12 +812,14 @@ const Dashboard: React.FC = () => {
                           {appointment.status === "pending" && (
                             <>
                               <button 
+                                onClick={() => handleConfirmAppointment(appointment.id)}
                                 className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900 rounded-lg transition-colors"
                                 title="Confirm appointment"
                               >
                                 <UserCheck className="h-4 w-4" />
                               </button>
                               <button 
+                                onClick={() => handleCancelAppointment(appointment.id)}
                                 className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors"
                                 title="Cancel appointment"
                               >

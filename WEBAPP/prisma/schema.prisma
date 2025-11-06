@@ -49,6 +49,13 @@ model User {
   sessions      Session[]
   chatMessages  ChatMessage[]  // User's chat messages
   chatSessions  ChatSession[]  // User's chat sessions
+  
+  // Therapy-related relations
+  therapySessions      TherapySession[] @relation("PatientSessions")
+  therapistSessions    TherapySession[] @relation("TherapistSessions")
+  patientAppointments  Appointment[]    @relation("PatientAppointments")
+  therapistAppointments Appointment[]   @relation("TherapistAppointments")
+  patientProfile       PatientProfile?
 }
 
 model VerificationToken {
@@ -118,4 +125,63 @@ model ChatMessage {
   @@index([userId])
   @@index([sessionId])
   @@index([timestamp])
+}
+
+// Therapy Session Model - Tracks therapy sessions between therapist and patient
+model TherapySession {
+  id              String   @id @default(cuid())
+  therapistId     String
+  therapist       User     @relation("TherapistSessions", fields: [therapistId], references: [id], onDelete: Cascade)
+  patientId       String
+  patient         User     @relation("PatientSessions", fields: [patientId], references: [id], onDelete: Cascade)
+  startTime       DateTime
+  endTime         DateTime?
+  duration        Int      @default(0) // Duration in seconds
+  emotionsSummary Json?    // {happy: 5, sad: 2, neutral: 8, ...}
+  messageCount    Int      @default(0)
+  status          String   @default("scheduled") // "scheduled", "active", "completed", "cancelled"
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([therapistId])
+  @@index([patientId])
+  @@index([status])
+  @@index([startTime])
+}
+
+// Appointment Model - Manages appointment scheduling
+model Appointment {
+  id            String   @id @default(cuid())
+  therapistId   String
+  therapist     User     @relation("TherapistAppointments", fields: [therapistId], references: [id], onDelete: Cascade)
+  patientId     String
+  patient       User     @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Cascade)
+  scheduledTime DateTime
+  duration      Int      @default(3600) // Duration in seconds (default 1 hour)
+  status        String   @default("pending") // "pending", "confirmed", "cancelled", "completed"
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([therapistId])
+  @@index([patientId])
+  @@index([status])
+  @@index([scheduledTime])
+}
+
+// Patient Profile Model - Stores patient analytics and progress
+model PatientProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totalSessions   Int      @default(0)
+  lastSessionDate DateTime?
+  dominantEmotion String   @default("neutral")
+  improvementTrend String  @default("stable") // "up", "down", "stable"
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
 }
