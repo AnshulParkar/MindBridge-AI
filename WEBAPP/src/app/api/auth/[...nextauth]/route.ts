@@ -80,10 +80,11 @@ const handler = NextAuth({
 	],
 	callbacks: {
 		async jwt({ token, user }) {
-			// Add user role to token on signin
+			// Add user role and id to token on signin
 			if (user) {
-				const u = user as { role?: string };
+				const u = user as { role?: string; id?: string };
 				token.role = u.role;
+				token.id = u.id;
 			}
 			
 			// Check if token is expired (server-side validation)
@@ -98,9 +99,10 @@ const handler = NextAuth({
 			return token;
 		},
 		async session({ session, token }) {
-			// Add role to session
+			// Add role and id to session
 			if (token && session.user) {
-				(session.user as { role?: string }).role = typeof token.role === 'string' ? token.role : undefined;
+				(session.user as { role?: string; id?: string }).role = typeof token.role === 'string' ? token.role : undefined;
+				(session.user as { id?: string }).id = typeof token.id === 'string' ? token.id : undefined;
 			}
 			return session;
 		},

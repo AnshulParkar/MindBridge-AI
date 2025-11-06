@@ -86,6 +86,8 @@ const Dashboard: React.FC = () => {
   }, [session])
 
   const [sessions, setSessions] = useState<SessionData[]>([])
+  const [appointments, setAppointments] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
     totalSessions: 0,
     totalDuration: 0,
@@ -96,53 +98,80 @@ const Dashboard: React.FC = () => {
     improvementScore: 85,
   })
 
-  // Mock data for demonstration
+  // Fetch dynamic data from API
   useEffect(() => {
-    const mockSessions: SessionData[] = [
-      {
-        id: "session_1",
-        userId: "user_123",
-        startTime: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-        duration: 1800,
-        emotionsSummary: { happy: 5, neutral: 8, sad: 2 },
-        messageCount: 15,
-        status: "completed",
-      },
-      {
-        id: "session_2",
-        userId: "user_123",
-        startTime: new Date(Date.now() - 24 * 60 * 60 * 1000),
-        duration: 2400,
-        emotionsSummary: { happy: 7, neutral: 6, anxious: 3 },
-        messageCount: 22,
-        status: "completed",
-      },
-      {
-        id: "session_3",
-        userId: "user_123",
-        startTime: new Date(),
-        duration: 0,
-        emotionsSummary: {},
-        messageCount: 0,
-        status: "active",
-      },
-    ]
+    if (!session?.user?.id) return
 
-    setSessions(mockSessions)
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const patientId = session.user.id
 
-    const completed = mockSessions.filter((s) => s.status === "completed")
-    const totalDuration = completed.reduce((sum, s) => sum + s.duration, 0)
+        // Fetch patient's therapy sessions
+        const sessionsRes = await fetch(`/api/therapy/sessions?patientId=${patientId}`)
+        if (sessionsRes.ok) {
+          const sessionsData = await sessionsRes.json()
+          
+          // Transform data to match interface
+          const transformedSessions = sessionsData.map((s: any) => ({
+            id: s.id,
+            userId: s.patientId,
+            startTime: new Date(s.startTime),
+            duration: s.duration,
+            emotionsSummary: s.emotionsSummary || {},
+            messageCount: s.messageCount,
+            status: s.status,
+          }))
 
-    setStats({
-      totalSessions: completed.length,
-      totalDuration,
-      dominantEmotion: "happy",
-      weeklyProgress: 3,
-      weeklyGoal: 5,
-      streakDays: 7,
-      improvementScore: 85,
-    })
-  }, [])
+          setSessions(transformedSessions)
+
+          // Calculate stats from real data
+          const completed = transformedSessions.filter((s: any) => s.status === "completed")
+          const totalDuration = completed.reduce((sum: number, s: any) => sum + s.duration, 0)
+          
+          // Calculate dominant emotion across all sessions
+          const allEmotions: Record<string, number> = {}
+          completed.forEach((s: any) => {
+            Object.entries(s.emotionsSummary || {}).forEach(([emotion, count]) => {
+              allEmotions[emotion] = (allEmotions[emotion] || 0) + (count as number)
+            })
+          })
+          const dominantEmotion = Object.keys(allEmotions).length > 0
+            ? Object.entries(allEmotions).sort(([, a], [, b]) => (b as number) - (a as number))[0][0]
+            : "neutral"
+
+          // Calculate weekly progress
+          const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+          const weeklyProgress = transformedSessions.filter(
+            (s: any) => new Date(s.startTime) > oneWeekAgo && s.status === "completed"
+          ).length
+
+          setStats({
+            totalSessions: completed.length,
+            totalDuration,
+            dominantEmotion,
+            weeklyProgress,
+            weeklyGoal: 5,
+            streakDays: 7, // TODO: Calculate actual streak
+            improvementScore: 85, // TODO: Calculate from emotion trends
+          })
+        }
+
+        // Fetch patient's appointments
+        const appointmentsRes = await fetch(`/api/therapy/appointments?patientId=${patientId}`)
+        if (appointmentsRes.ok) {
+          const appointmentsData = await appointmentsRes.json()
+          setAppointments(appointmentsData)
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [session])
 
   const formatDuration = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60)
@@ -177,6 +206,17 @@ const Dashboard: React.FC = () => {
   }
 
   const progressPercentage = (stats.weeklyProgress / stats.weeklyGoal) * 100
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading dashboard...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
@@ -531,55 +571,41 @@ const Dashboard: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="appointments" className="space-y-6">
-            {/* Request Appointment Section */}
-            <Card className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg transition-colors duration-300">
+            {/* Book Appointment Card */}
+            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-700 shadow-lg transition-colors duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center text-gray-900 dark:text-white">
                   <Calendar className="mr-2 h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  Request New Appointment
+                  Book New Appointment
                 </CardTitle>
                 <CardDescription className="text-gray-600 dark:text-gray-300">
-                  Schedule a session with your therapist
+                  Schedule a therapy session with an available therapist
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-900 dark:text-white">Preferred Date</label>
-                    <input 
-                      type="date" 
-                      placeholder="Select your preferred date"
-                      className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                    />
+                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                  <div className="flex-1">
+                    <div className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                      Choose from our available therapists, select your preferred time, and book your next therapy session.
+                    </div>
+                    <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-4">
+                      <span className="flex items-center">
+                        <Calendar className="mr-1 h-3 w-3" />
+                        Flexible Scheduling
+                      </span>
+                      <span className="flex items-center">
+                        <Clock className="mr-1 h-3 w-3" />
+                        Multiple Time Slots
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-900 dark:text-white">Preferred Time</label>
-                    <select className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white" aria-label="Select preferred appointment time">
-                      <option>Morning (9 AM - 12 PM)</option>
-                      <option>Afternoon (1 PM - 5 PM)</option>
-                      <option>Evening (6 PM - 8 PM)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-900 dark:text-white">Preferred Mode</label>
-                    <select className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white" aria-label="Select preferred appointment mode">
-                      <option value="online">Virtual Session</option>
-                      <option value="offline">In-Person Session</option>
-                    </select>
-                  </div>
+                  <Link href="/patient/appointments">
+                    <Button className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium shadow-lg hover:shadow-xl transition-all duration-200">
+                      <Calendar className="mr-2 h-4 w-4" />
+                      View & Book Appointments
+                    </Button>
+                  </Link>
                 </div>
-                <div className="mt-4">
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">Reason for Appointment</label>
-                  <textarea 
-                    placeholder="Please describe the reason for your appointment (optional)"
-                    className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                    rows={3}
-                  ></textarea>
-                </div>
-                <Button className="mt-4 bg-blue-600 hover:bg-blue-700 text-white">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Request Appointment
-                </Button>
               </CardContent>
             </Card>
 
@@ -596,42 +622,77 @@ const Dashboard: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {/* Mock upcoming appointments */}
-                  <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-green-50 dark:bg-green-900/20">
-                    <div className="flex items-center space-x-4">
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                          <Calendar className="h-6 w-6 text-green-600 dark:text-green-400" />
+                  {appointments
+                    .filter((apt) => new Date(apt.scheduledTime) > new Date() && apt.status !== "cancelled")
+                    .sort((a, b) => new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime())
+                    .map((appointment) => (
+                      <div
+                        key={appointment.id}
+                        className={`flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg ${
+                          appointment.status === "confirmed"
+                            ? "bg-green-50 dark:bg-green-900/20"
+                            : "bg-yellow-50 dark:bg-yellow-900/20"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div className="flex-shrink-0">
+                            <div
+                              className={`w-12 h-12 ${
+                                appointment.status === "confirmed"
+                                  ? "bg-green-100 dark:bg-green-900"
+                                  : "bg-yellow-100 dark:bg-yellow-900"
+                              } rounded-lg flex items-center justify-center`}
+                            >
+                              <Calendar
+                                className={`h-6 w-6 ${
+                                  appointment.status === "confirmed"
+                                    ? "text-green-600 dark:text-green-400"
+                                    : "text-yellow-600 dark:text-yellow-400"
+                                }`}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                              {appointment.therapist?.name || "Therapist"}
+                            </h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-300">
+                              {new Date(appointment.scheduledTime).toLocaleString()}
+                            </p>
+                            <p
+                              className={`text-xs ${
+                                appointment.status === "confirmed"
+                                  ? "text-green-600 dark:text-green-400"
+                                  : "text-yellow-600 dark:text-yellow-400"
+                              }`}
+                            >
+                              {appointment.status === "confirmed" ? "Confirmed" : "Pending Confirmation"}
+                            </p>
+                          </div>
                         </div>
+                        <Badge
+                          className={
+                            appointment.status === "confirmed"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                              : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                          }
+                        >
+                          {appointment.status === "confirmed" ? "Confirmed" : "Pending"}
+                        </Badge>
                       </div>
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-900 dark:text-white">Dr. Sarah Johnson</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">Tomorrow, 2:00 PM</p>
-                        <p className="text-xs text-green-600 dark:text-green-400">Confirmed</p>
-                      </div>
+                    ))}
+                  {appointments.filter((apt) => new Date(apt.scheduledTime) > new Date() && apt.status !== "cancelled")
+                    .length === 0 && (
+                    <div className="text-center py-8 text-gray-600 dark:text-gray-400">
+                      <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
+                      <p>No upcoming appointments</p>
+                      <Link href="/patient/appointments">
+                        <Button className="mt-4 bg-blue-600 hover:bg-blue-700 text-white">
+                          Book an Appointment
+                        </Button>
+                      </Link>
                     </div>
-                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                      Confirmed
-                    </Badge>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-yellow-50 dark:bg-yellow-900/20">
-                    <div className="flex items-center space-x-4">
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center">
-                          <Calendar className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
-                        </div>
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-900 dark:text-white">Dr. Michael Chen</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">Friday, 10:00 AM</p>
-                        <p className="text-xs text-yellow-600 dark:text-yellow-400">Pending Confirmation</p>
-                      </div>
-                    </div>
-                    <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                      Pending
-                    </Badge>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -649,54 +710,53 @@ const Dashboard: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {/* Mock past appointments */}
-                  <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
-                    <div className="flex items-center space-x-4">
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                          <CheckCircle2 className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+                  {appointments
+                    .filter((apt) => new Date(apt.scheduledTime) <= new Date() || apt.status === "completed")
+                    .sort((a, b) => new Date(b.scheduledTime).getTime() - new Date(a.scheduledTime).getTime())
+                    .slice(0, 5)
+                    .map((appointment) => (
+                      <div
+                        key={appointment.id}
+                        className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg"
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div className="flex-shrink-0">
+                            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                              <CheckCircle2 className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                              {appointment.therapist?.name || "Therapist"}
+                            </h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-300">
+                              {new Date(appointment.scheduledTime).toLocaleString()}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Duration: {Math.floor(appointment.duration / 60)} minutes
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                            {appointment.status === "completed" ? "Completed" : "Past"}
+                          </Badge>
+                          {appointment.notes && (
+                            <Button variant="outline" size="sm" className="mt-2 ml-2">
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Notes
+                            </Button>
+                          )}
                         </div>
                       </div>
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-900 dark:text-white">Dr. Sarah Johnson</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">Last Monday, 2:00 PM</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Duration: 50 minutes</p>
-                      </div>
+                    ))}
+                  {appointments.filter((apt) => new Date(apt.scheduledTime) <= new Date() || apt.status === "completed")
+                    .length === 0 && (
+                    <div className="text-center py-8 text-gray-600 dark:text-gray-400">
+                      <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
+                      <p>No past appointments</p>
                     </div>
-                    <div className="text-right">
-                      <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
-                        Completed
-                      </Badge>
-                      <Button variant="outline" size="sm" className="mt-2 ml-2">
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Notes
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
-                    <div className="flex items-center space-x-4">
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                          <CheckCircle2 className="h-6 w-6 text-gray-600 dark:text-gray-400" />
-                        </div>
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-900 dark:text-white">Dr. Emily Rodriguez</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">2 weeks ago, 4:00 PM</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Duration: 45 minutes</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
-                        Completed
-                      </Badge>
-                      <Button variant="outline" size="sm" className="mt-2 ml-2">
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Notes
-                      </Button>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
