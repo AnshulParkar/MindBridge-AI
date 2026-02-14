@@ -71,20 +71,58 @@ def get_bot_reply(user_message: str) -> str:
 
 class GroqService:
     """
-    Groq-powered AI service for therapy responses
+    Groq-powered AI service for therapy responses with RAG integration
     """
     
     def __init__(self):
         self.conversation_history = [
             {"role": "system", "content": SYSTEM_PROMPT}
         ]
+        
+        # Initialize RAG components with proper error handling
+        self.retriever = None
+        self.rag_enabled = False
+        try:
+            print("🔄 Initializing RAG system...")
+            
+            # Import RAG dependencies only if they exist
+            import sys
+            sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+            
+            from rag.helper import download_hugging_face_embeddings
+            from langchain_pinecone import PineconeVectorStore
+            
+            # Check if Pinecone API key is set
+            pinecone_key = os.getenv("PINECONE_API_KEY")
+            if not pinecone_key:
+                raise ValueError("PINECONE_API_KEY not set")
+            
+            # Initialize embeddings and retriever
+            embeddings = download_hugging_face_embeddings()
+            self.retriever = PineconeVectorStore.from_existing_index(
+                index_name="healthai",
+                embedding=embeddings
+            ).as_retriever(search_kwargs={"k": 3})  # Retrieve top 3 relevant documents
+            print("✅ RAG system initialized successfully")
+            self.rag_enabled = True
+        except ImportError as e:
+            print(f"⚠️ RAG dependencies not installed: {str(e)}")
+            print("⚠️ Install with: pip install -r rag/requirements.txt")
+            print("⚠️ Continuing without RAG (conversation history still works)")
+        except ValueError as e:
+            print(f"⚠️ RAG configuration missing: {str(e)}")
+            print("⚠️ Set PINECONE_API_KEY in .env file")
+            print("⚠️ Continuing without RAG (conversation history still works)")
+        except Exception as e:
+            print(f"⚠️ RAG initialization failed: {str(e)}")
+            print("⚠️ Continuing without RAG (conversation history still works)")
 
     async def test_connection(self):
         """Test Groq API connection"""
         try:
             # Simple test prompt
             response = await self.generate_therapy_response("Hello, this is a test.")
-            print(f"✅ Groq API connection successful with model: {self.model_name}")
+            print(f"✅ Groq API connection successful")
             return True
         except Exception as e:
             print(f"❌ Groq connection test failed: {str(e)}")
@@ -92,18 +130,45 @@ class GroqService:
     
     async def generate_therapy_response(self, user_message: str, emotion: str = "neutral") -> str:
         """
-        Generate therapeutic response using Groq API
+        Generate therapeutic response using Groq API with RAG enhancement
         
         Args:
             user_message: The user's message
             emotion: Detected emotion (currently not used but kept for compatibility)
             
         Returns:
-            AI-generated therapeutic response
+            AI-generated therapeutic response augmented with relevant knowledge
         """
         try:
-            # Add user message to history
-            self.conversation_history.append({"role": "user", "content": user_message})
+            # Prepare the message (with or without RAG)
+            message_to_send = user_message
+            
+            # RAG: Retrieve relevant context if available
+            if self.rag_enabled and self.retriever:
+                try:
+                    # Retrieve relevant documents from Pinecone
+                    loop = asyncio.get_event_loop()
+                    context_docs = await loop.run_in_executor(None, self.retriever.invoke, user_message)
+                    
+                    if context_docs and len(context_docs) > 0:
+                        # Extract content from retrieved documents
+                        context = "\n".join([doc.page_content for doc in context_docs])
+                        
+                        # Augment user message with retrieved context
+                        message_to_send = f"""[Context from mental health knowledge base: {context}]
+
+User's question: {user_message}
+
+Please provide a therapeutic response based on the context above and your expertise."""
+                        print(f"✅ RAG: Retrieved {len(context_docs)} relevant documents")
+                    else:
+                        print("⚠️ RAG: No relevant documents found, using conversation history only")
+                except Exception as rag_error:
+                    print(f"⚠️ RAG retrieval failed: {str(rag_error)}. Continuing without RAG.")
+                    # Continue with original message if RAG fails
+            
+            # Add user message to history (with or without RAG context)
+            self.conversation_history.append({"role": "user", "content": message_to_send})
             
             # Call Groq API with full history
             loop = asyncio.get_event_loop()
@@ -121,7 +186,9 @@ class GroqService:
             
             return bot_message.strip()
         except Exception as e:
-            return f"❌ Groq Error: {str(e)}"
+            error_msg = f"Error generating response: {str(e)}"
+            print(f"❌ {error_msg}")
+            return f"I apologize, but I'm having trouble processing your request right now. Please try again."
 
 # Optional: test from terminal
 if __name__ == "__main__":
