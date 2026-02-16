@@ -12,21 +12,18 @@ interface ChatMessage {
 }
 
 interface UseChatOptions {
-  // sessionId?: string;  // Commented out for now
   enableTTS?: boolean;
   enableAvatar?: boolean;
   onAvatarResponse?: (avatarUrl?: string, audioUrl?: string) => void;
   onAvatarGenerationStart?: () => void;
-  // userId?: string;  // Commented out for now
 }
 
 export const useChat = (options: UseChatOptions = {}) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // const [sessionId, setSessionId] = useState<string | null>(options.sessionId || null);  // Commented out
 
-  const { enableTTS = false, enableAvatar = false, onAvatarResponse, onAvatarGenerationStart /* userId */ } = options;
+  const { enableTTS = false, enableAvatar = false, onAvatarResponse, onAvatarGenerationStart } = options;
 
   const sendMessage = useCallback(async (
     content: string,
@@ -109,25 +106,16 @@ export const useChat = (options: UseChatOptions = {}) => {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, /* sessionId, */ enableTTS, enableAvatar, onAvatarResponse, onAvatarGenerationStart]);
-
-  // Session functionality commented out for now
-  // const createSession = useCallback(async (userId: string): Promise<string | null> => {
-  //   try {
-  //     const response = await therapyApi.createSession(userId);
-  //     if (response.status === 'success') {
-  //       setSessionId(response.session_id);
-  //       return response.session_id;
-  //     }
-  //     return null;
-  //   } catch (err) {
-  //     setError(err instanceof Error ? err.message : 'Failed to create session');
-  //     return null;
-  //   }
-  // }, []);
+  }, [isLoading, enableTTS, enableAvatar, onAvatarResponse, onAvatarGenerationStart]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);
+    setError(null);
+  }, []);
+
+  // Load messages from an array (used when switching sessions)
+  const loadMessages = useCallback((msgs: ChatMessage[]) => {
+    setMessages(msgs);
     setError(null);
   }, []);
 
@@ -136,21 +124,13 @@ export const useChat = (options: UseChatOptions = {}) => {
     return userMessages[userMessages.length - 1]?.emotion;
   }, [messages]);
 
-  // Auto-create session if userId is provided but no sessionId - COMMENTED OUT
-  // useEffect(() => {
-  //   if (userId && !sessionId) {
-  //     createSession(userId);
-  //   }
-  // }, [userId, sessionId, createSession]);
-
   return {
     messages,
     isLoading,
     error,
-    // sessionId,  // Commented out
     sendMessage,
-    // createSession,  // Commented out
     clearMessages,
+    loadMessages,
     getLastUserEmotion,
   };
 };

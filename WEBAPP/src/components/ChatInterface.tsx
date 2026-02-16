@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useSession } from 'next-auth/react';
 import { useChat } from '../hooks/useChat';
@@ -23,6 +23,7 @@ interface ChatInterfaceProps {
   onAvatarResponse?: (avatarUrl?: string, audioUrl?: string) => void;
   onAvatarGenerationStart?: () => void;
   onMessagesLoad?: (messages: Message[]) => void;
+  onFirstMessage?: () => void;
   className?: string;
 }
 
@@ -34,18 +35,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onAvatarResponse,
   onAvatarGenerationStart,
   onMessagesLoad,
+  onFirstMessage,
   className = '',
 }) => {
   const [inputMessage, setInputMessage] = useState('');
-  const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const { data: session } = useSession();
+  const prevSessionIdRef = useRef<string | undefined>(undefined);
   
   const {
     messages,
     isLoading,
     error,
     sendMessage,
+    clearMessages,
+    loadMessages,
   } = useChat({
     enableTTS,
     enableAvatar,
@@ -55,17 +60,20 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // Load messages when sessionId changes
   useEffect(() => {
+    // Prevent re-running for same session
+    if (prevSessionIdRef.current === sessionId) return;
+    prevSessionIdRef.current = sessionId;
+
     if (sessionId) {
       loadSessionMessages(sessionId);
     } else {
-      setLocalMessages([]);
+      clearMessages();
     }
   }, [sessionId]);
 
-  // Update local messages when chat messages change
+  // Notify parent when messages change
   useEffect(() => {
     if (messages.length > 0) {
-      setLocalMessages(messages);
       onMessagesLoad?.(messages);
     }
   }, [messages, onMessagesLoad]);
@@ -73,15 +81,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [localMessages]);
+  }, [messages]);
 
   // Load messages from database for a session
-  const loadSessionMessages = async (sessionId: string) => {
+  const loadSessionMessages = async (sid: string) => {
+    setIsLoadingHistory(true);
     try {
-      const response = await fetch(`/api/chat/sessions/${sessionId}/messages`);
+      const response = await fetch(`/api/chat/sessions/${sid}/messages`);
       if (response.ok) {
         const data = await response.json();
-        const formattedMessages: Message[] = data.messages.map((msg: any) => ({
+        const formattedMessages: Message[] = (data.messages || []).map((msg: any) => ({
           id: msg.id,
           role: msg.role,
           content: msg.content,
@@ -89,11 +98,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           audioUrl: msg.metadata?.audioUrl,
           avatarUrl: msg.metadata?.avatarUrl,
         }));
-        setLocalMessages(formattedMessages);
+        loadMessages(formattedMessages);
         onMessagesLoad?.(formattedMessages);
+      } else {
+        clearMessages();
       }
     } catch (error) {
       console.error('Error loading session messages:', error);
+      clearMessages();
+    } finally {
+      setIsLoadingHistory(false);
     }
   };
 
@@ -128,6 +142,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     const message = inputMessage;
     setInputMessage('');
+
+    // Notify parent on first message (for auto-title and session tracking)
+    if (messages.length === 0) {
+      onFirstMessage?.();
+    }
     
     // Send message via chat hook
     const response = await sendMessage(message);
@@ -162,7 +181,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-x-1 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-        {localMessages.length === 0 && (
+        {isLoadingHistory ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="flex space-x-1">
+              <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:0.1s]"></div>
+              <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+            </div>
+            <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Loading chat history...</span>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="text-center text-gray-500 dark:text-gray-400 py-8">
             <div className="flex justify-center text-4xl mb-4"><Image src="/logo.png" alt="Logo" width={50} height={50} /></div>
             <p className="text-lg font-medium">Welcome to MindBridge</p>
@@ -170,9 +198,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               I&apos;m here to listen and support you. Share what&apos;s on your mind.
             </p>
           </div>
-        )}
+        ) : null}
 
-        {localMessages.map((message) => (
+        {messages.map((message) => (
           <div
             key={message.id}
             className={`flex ${

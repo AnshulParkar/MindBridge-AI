@@ -103,11 +103,30 @@ export async function POST(
       }
     });
 
-    // Update session's updatedAt timestamp
-    await prisma.chatSession.update({
-      where: { id: sessionId },
-      data: { updatedAt: new Date() }
+    // Count messages in this session
+    const messageCount = await prisma.chatMessage.count({
+      where: { sessionId }
     });
+
+    // Auto-title on first user message: use first ~40 chars of the message
+    if (messageCount === 1 && (role || 'user') === 'user') {
+      const autoTitle = content.trim().length > 40 
+        ? content.trim().substring(0, 40) + '...' 
+        : content.trim();
+      await prisma.chatSession.update({
+        where: { id: sessionId },
+        data: { 
+          title: autoTitle,
+          updatedAt: new Date() 
+        }
+      });
+    } else {
+      // Update session's updatedAt timestamp
+      await prisma.chatSession.update({
+        where: { id: sessionId },
+        data: { updatedAt: new Date() }
+      });
+    }
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error) {

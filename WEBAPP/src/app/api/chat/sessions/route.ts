@@ -102,6 +102,11 @@ export async function DELETE(request: NextRequest) {
       where: {
         id: sessionId,
         userId: user.id
+      },
+      include: {
+        _count: {
+          select: { messages: true }
+        }
       }
     });
 
@@ -109,11 +114,18 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    // Soft delete by setting isActive to false
-    await prisma.chatSession.update({
-      where: { id: sessionId },
-      data: { isActive: false }
-    });
+    // Hard delete if session has no messages, soft delete otherwise
+    if (chatSession._count.messages === 0) {
+      await prisma.chatSession.delete({
+        where: { id: sessionId }
+      });
+    } else {
+      // Soft delete by setting isActive to false
+      await prisma.chatSession.update({
+        where: { id: sessionId },
+        data: { isActive: false }
+      });
+    }
 
     return NextResponse.json({ message: 'Session deleted successfully' });
   } catch (error) {

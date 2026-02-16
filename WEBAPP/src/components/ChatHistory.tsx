@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
 import { 
@@ -35,18 +35,23 @@ interface ChatHistoryProps {
   activeSessionId?: string;
   onSessionSelect: (sessionId: string) => void;
   onNewChat: () => void;
+  onSessionCreated?: (sessionId: string) => void;
+  refreshTrigger?: number;
 }
 
 const ChatHistory: React.FC<ChatHistoryProps> = ({ 
   activeSessionId, 
   onSessionSelect,
-  onNewChat 
+  onNewChat,
+  onSessionCreated,
+  refreshTrigger = 0,
 }) => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const hasInitialized = useRef(false);
 
   // Fetch chat sessions
   const fetchSessions = async () => {
@@ -56,37 +61,130 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
       if (response.ok) {
         const data = await response.json();
         setSessions(data.sessions || []);
+        return data.sessions || [];
       }
+      return [];
     } catch (error) {
       console.error('Error fetching sessions:', error);
+      return [];
     } finally {
       setLoading(false);
     }
   };
 
+  // Initial load + auto-create a new session (guarded against StrictMode double-mount)
   useEffect(() => {
-    fetchSessions();
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
+    const initSessions = async () => {
+      const existingSessions = await fetchSessions();
+      
+      // Clean up any empty sessions (0 messages) except currently active
+      await cleanupEmptySessions(existingSessions);
+      
+      // Auto-create a new session for this visit
+      await autoCreateNewSession();
+    };
+    initSessions();
   }, []);
 
-  // Create new chat session
-  const handleCreateNewChat = async () => {
+  // Refresh sessions when trigger changes (e.g., after first message sent)
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      fetchSessions();
+    }
+  }, [refreshTrigger]);
+
+  // Clean up empty sessions (sessions with 0 messages)
+  const cleanupEmptySessions = async (sessionsList: ChatSession[]) => {
+    const emptySessions = sessionsList.filter(
+      s => s._count?.messages === 0
+    );
+    
+    for (const emptySession of emptySessions) {
+      try {
+        await fetch(`/api/chat/sessions?sessionId=${emptySession.id}`, {
+          method: 'DELETE',
+        });
+      } catch (error) {
+        console.error('Error cleaning up empty session:', error);
+      }
+    }
+
+    if (emptySessions.length > 0) {
+      setSessions(prev => prev.filter(s => (s._count?.messages ?? 0) > 0));
+    }
+  };
+
+  // Auto-create a new session on mount
+  const autoCreateNewSession = async () => {
     try {
       setIsCreating(true);
+      const now = new Date();
+      const title = `Chat - ${now.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      
       const response = await fetch('/api/chat/sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          title: `Chat ${sessions.length + 1}`,
-        }),
+        body: JSON.stringify({ title }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        setSessions([data.session, ...sessions]);
+        setSessions(prev => [data.session, ...prev]);
+        onSessionCreated?.(data.session.id);
+        onSessionSelect(data.session.id);
+      }
+    } catch (error) {
+      console.error('Error auto-creating session:', error);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  // Create new chat session
+  const handleCreateNewChat = async () => {
+    try {
+      setIsCreating(true);
+
+      // If the current active session has 0 messages, delete it first
+      // Check server-side count to avoid stale local state
+      if (activeSessionId) {
+        try {
+          const msgRes = await fetch(`/api/chat/sessions/${activeSessionId}/messages`);
+          if (msgRes.ok) {
+            const msgData = await msgRes.json();
+            if (!msgData.messages || msgData.messages.length === 0) {
+              await fetch(`/api/chat/sessions?sessionId=${activeSessionId}`, {
+                method: 'DELETE',
+              });
+              setSessions(prev => prev.filter(s => s.id !== activeSessionId));
+            }
+          }
+        } catch {
+          // Ignore errors during cleanup check
+        }
+      }
+
+      const now = new Date();
+      const title = `Chat - ${now.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+      const response = await fetch('/api/chat/sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSessions(prev => [data.session, ...prev]);
         onNewChat();
-        // Select the newly created session
+        onSessionCreated?.(data.session.id);
         onSessionSelect(data.session.id);
       }
     } catch (error) {

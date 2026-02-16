@@ -2,7 +2,7 @@
 
 import type React from "react"
 import Image from "next/image"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Button } from "../../../components/ui/button"
@@ -41,10 +41,18 @@ const TherapySession: React.FC = () => {
   // Session controls
   const [isSessionActive, setIsSessionActive] = useState(true)
   const [currentSessionId, setCurrentSessionId] = useState<string | undefined>()
+  const [hasMessagesInCurrent, setHasMessagesInCurrent] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [avatarSettings, setAvatarSettings] = useState({
     enableTTS: false,
     enableAvatar: false,
   })
+
+  // Refs to track latest values for unmount cleanup
+  const currentSessionIdRef = useRef<string | undefined>(undefined)
+  const hasMessagesRef = useRef(false)
+  useEffect(() => { currentSessionIdRef.current = currentSessionId }, [currentSessionId])
+  useEffect(() => { hasMessagesRef.current = hasMessagesInCurrent }, [hasMessagesInCurrent])
 
   // Avatar state
   const [latestAvatarUrl, setLatestAvatarUrl] = useState<string | undefined>()
@@ -62,7 +70,16 @@ const TherapySession: React.FC = () => {
     return () => clearInterval(interval)
   }, [isSessionActive, sessionStartTime])
 
- 
+  // Cleanup empty session ONLY on actual page unmount
+  useEffect(() => {
+    return () => {
+      if (currentSessionIdRef.current && !hasMessagesRef.current) {
+        fetch(`/api/chat/sessions?sessionId=${currentSessionIdRef.current}`, {
+          method: 'DELETE',
+        }).catch(() => {});
+      }
+    }
+  }, []) // Empty deps = only runs on unmount
 
   const handleNewAvatarResponse = (avatarUrl?: string, audioUrl?: string) => {
     if (avatarUrl) {
@@ -74,14 +91,29 @@ const TherapySession: React.FC = () => {
     setIsGeneratingAvatar(false)
   }
 
-  // Handle session selection
+  // Handle session selection from history
   const handleSessionSelect = (sessionId: string) => {
     setCurrentSessionId(sessionId)
+    setHasMessagesInCurrent(true) // Assume history sessions have messages
   }
 
-  // Handle new chat creation
+  // Handle new chat creation — do NOT reset hasMessages here,
+  // cleanup of empty sessions is handled by ChatHistory
   const handleNewChat = () => {
-    setCurrentSessionId(undefined)
+    // Nothing to reset here; ChatHistory handles empty session cleanup
+  }
+
+  // Handle session auto-created by ChatHistory
+  const handleSessionCreated = (sessionId: string) => {
+    setCurrentSessionId(sessionId)
+    setHasMessagesInCurrent(false)
+  }
+
+  // Handle first message sent - mark session as having messages
+  const handleFirstMessage = () => {
+    setHasMessagesInCurrent(true)
+    // Trigger a refresh of the sessions list to update message counts
+    setRefreshTrigger(prev => prev + 1)
   }
 
 
@@ -141,6 +173,8 @@ const TherapySession: React.FC = () => {
                   activeSessionId={currentSessionId}
                   onSessionSelect={handleSessionSelect}
                   onNewChat={handleNewChat}
+                  onSessionCreated={handleSessionCreated}
+                  refreshTrigger={refreshTrigger}
                 />
               </CardContent>
             </Card>
@@ -162,6 +196,7 @@ const TherapySession: React.FC = () => {
                   enableTTS={avatarSettings.enableTTS}
                   enableAvatar={avatarSettings.enableAvatar}
                   onAvatarResponse={handleNewAvatarResponse}
+                  onFirstMessage={handleFirstMessage}
                   className="h-full rounded-none border-0"
                 />
               </CardContent>
