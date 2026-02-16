@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -39,28 +39,37 @@ import {
   CalendarDays,
   Timer,
   Settings,
+  Trash2,
+  RefreshCw,
 } from "lucide-react"
 import ThemeToggle from "../../../components/ThemeToggle"
 import MobileNavigation from "../../../components/MobileNavigation"
 
 interface AppointmentData {
   id: string
-  patientName: string
-  patientEmail: string
-  scheduledTime: Date
+  patientId: string
+  patient: { id: string; name: string; email: string }
+  therapist: { id: string; name: string; email: string }
+  scheduledTime: string
   duration: number
   status: "pending" | "confirmed" | "cancelled" | "completed"
+  type: string
   notes?: string
-  type: "initial" | "followup" | "emergency"
 }
 
-interface TimeSlot {
+interface AvailabilitySlot {
   id: string
+  therapistId: string
+  dayOfWeek: number
   startTime: string
   endTime: string
-  isAvailable: boolean
-  dayOfWeek: number // 0 = Sunday, 1 = Monday, etc.
+  isRecurring: boolean
+  specificDate: string | null
+  isBooked: boolean
+  isActive: boolean
 }
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
 const ScheduleManagement: React.FC = () => {
   const { data: session, status } = useSession()
@@ -75,95 +84,78 @@ const ScheduleManagement: React.FC = () => {
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
   const [appointments, setAppointments] = useState<AppointmentData[]>([])
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
+  const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([])
+  const [loading, setLoading] = useState(true)
+  const [slotsLoading, setSlotsLoading] = useState(false)
   const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
 
-  // New appointment form state
-  const [newAppointment, setNewAppointment] = useState({
-    patientName: "",
-    patientEmail: "",
-    date: "",
-    time: "",
-    duration: "60",
-    type: "followup" as "initial" | "followup" | "emergency",
-    notes: "",
+  // New slot form state
+  const [newSlot, setNewSlot] = useState({
+    dayOfWeek: "1",
+    startTime: "09:00",
+    endTime: "10:00",
+    isRecurring: true,
   })
+  const [slotError, setSlotError] = useState<string | null>(null)
+  const [slotSuccess, setSlotSuccess] = useState<string | null>(null)
 
-  // Mock data
+  // Fetch appointments from API
+  const fetchAppointments = useCallback(async () => {
+    if (!session?.user?.id) return
+    try {
+      const res = await fetch(`/api/therapy/appointments?therapistId=${session.user.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setAppointments(data)
+      }
+    } catch (error) {
+      console.error("Error fetching appointments:", error)
+    }
+  }, [session?.user?.id])
+
+  // Fetch availability slots from API
+  const fetchAvailability = useCallback(async () => {
+    if (!session?.user?.id) return
+    setSlotsLoading(true)
+    try {
+      const res = await fetch(`/api/therapy/availability?therapistId=${session.user.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setAvailabilitySlots(data)
+      }
+    } catch (error) {
+      console.error("Error fetching availability:", error)
+    } finally {
+      setSlotsLoading(false)
+    }
+  }, [session?.user?.id])
+
+  // Initial data fetch
   useEffect(() => {
-    const mockAppointments: AppointmentData[] = [
-      {
-        id: "apt_1",
-        patientName: "Alice Johnson",
-        patientEmail: "alice@example.com",
-        scheduledTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-        duration: 3600,
-        status: "confirmed",
-        notes: "Follow-up on anxiety management techniques",
-        type: "followup",
-      },
-      {
-        id: "apt_2",
-        patientName: "David Wilson",
-        patientEmail: "david@example.com",
-        scheduledTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        duration: 3600,
-        status: "pending",
-        notes: "Initial consultation for depression",
-        type: "initial",
-      },
-      {
-        id: "apt_3",
-        patientName: "Bob Smith",
-        patientEmail: "bob@example.com",
-        scheduledTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-        duration: 3600,
-        status: "confirmed",
-        type: "followup",
-      },
-      {
-        id: "apt_4",
-        patientName: "Carol Davis",
-        patientEmail: "carol@example.com",
-        scheduledTime: new Date(Date.now() - 24 * 60 * 60 * 1000),
-        duration: 3600,
-        status: "completed",
-        notes: "Session completed successfully",
-        type: "followup",
-      },
-      {
-        id: "apt_5",
-        patientName: "Emma Brown",
-        patientEmail: "emma@example.com",
-        scheduledTime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-        duration: 1800,
-        status: "cancelled",
-        notes: "Patient requested cancellation",
-        type: "emergency",
-      },
-    ]
+    if (!session?.user?.id) return
+    const loadData = async () => {
+      setLoading(true)
+      await Promise.all([fetchAppointments(), fetchAvailability()])
+      setLoading(false)
+    }
+    loadData()
+  }, [session?.user?.id, fetchAppointments, fetchAvailability])
 
-    const mockTimeSlots: TimeSlot[] = [
-      { id: "slot_1", startTime: "09:00", endTime: "10:00", isAvailable: true, dayOfWeek: 1 },
-      { id: "slot_2", startTime: "10:00", endTime: "11:00", isAvailable: false, dayOfWeek: 1 },
-      { id: "slot_3", startTime: "11:00", endTime: "12:00", isAvailable: true, dayOfWeek: 1 },
-      { id: "slot_4", startTime: "14:00", endTime: "15:00", isAvailable: true, dayOfWeek: 1 },
-      { id: "slot_5", startTime: "15:00", endTime: "16:00", isAvailable: true, dayOfWeek: 1 },
-      { id: "slot_6", startTime: "16:00", endTime: "17:00", isAvailable: false, dayOfWeek: 1 },
-    ]
+  // Poll for new appointments every 30 seconds
+  useEffect(() => {
+    if (!session?.user?.id) return
+    const interval = setInterval(fetchAppointments, 30000)
+    return () => clearInterval(interval)
+  }, [session?.user?.id, fetchAppointments])
 
-    setAppointments(mockAppointments)
-    setTimeSlots(mockTimeSlots)
-  }, [])
-
-  const formatDate = (date: Date): string => {
-    return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  const formatDate = (date: string): string => {
+    return new Date(date).toLocaleDateString() + " " + new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
   }
 
-  const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  const formatTime = (date: string): string => {
+    return new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
   }
 
   const formatDuration = (seconds: number): string => {
@@ -173,75 +165,188 @@ const ScheduleManagement: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "confirmed":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-      case "pending":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-      case "cancelled":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-      case "completed":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-      default:
-        return "bg-secondary text-secondary-foreground"
+      case "confirmed": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+      case "pending": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+      case "cancelled": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+      case "completed": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+      default: return "bg-secondary text-secondary-foreground"
     }
   }
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case "initial":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
-      case "followup":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-      case "emergency":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-      default:
-        return "bg-secondary text-secondary-foreground"
+      case "initial": return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+      case "followup": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+      case "emergency": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+      default: return "bg-secondary text-secondary-foreground"
     }
   }
 
   const filteredAppointments = appointments.filter((appointment) => {
     const matchesSearch =
-      appointment.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      appointment.patientEmail.toLowerCase().includes(searchTerm.toLowerCase())
+      (appointment.patient?.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (appointment.patient?.email || "").toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === "all" || appointment.status === statusFilter
     return matchesSearch && matchesStatus
   })
 
-  const handleConfirmAppointment = (appointmentId: string) => {
-    setAppointments((prev) =>
-      prev.map((apt) => (apt.id === appointmentId ? { ...apt, status: "confirmed" as const } : apt)),
-    )
+  const handleConfirmAppointment = async (appointmentId: string) => {
+    try {
+      const res = await fetch(`/api/therapy/appointments/${appointmentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "confirmed" }),
+      })
+      if (res.ok) {
+        setAppointments((prev) =>
+          prev.map((apt) => (apt.id === appointmentId ? { ...apt, status: "confirmed" } : apt))
+        )
+      }
+    } catch (error) {
+      console.error("Error confirming appointment:", error)
+    }
   }
 
-  const handleCancelAppointment = (appointmentId: string) => {
-    setAppointments((prev) =>
-      prev.map((apt) => (apt.id === appointmentId ? { ...apt, status: "cancelled" as const } : apt)),
-    )
+  const handleCancelAppointment = async (appointmentId: string) => {
+    try {
+      const res = await fetch(`/api/therapy/appointments/${appointmentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      })
+      if (res.ok) {
+        setAppointments((prev) =>
+          prev.map((apt) => (apt.id === appointmentId ? { ...apt, status: "cancelled" } : apt))
+        )
+      }
+    } catch (error) {
+      console.error("Error cancelling appointment:", error)
+    }
   }
 
-  const handleCreateAppointment = () => {
-    const newApt: AppointmentData = {
-      id: `apt_${Date.now()}`,
-      patientName: newAppointment.patientName,
-      patientEmail: newAppointment.patientEmail,
-      scheduledTime: new Date(`${newAppointment.date}T${newAppointment.time}`),
-      duration: Number.parseInt(newAppointment.duration) * 60,
-      status: "pending",
-      notes: newAppointment.notes,
-      type: newAppointment.type,
+  const handleCompleteAppointment = async (appointmentId: string) => {
+    try {
+      const res = await fetch(`/api/therapy/appointments/${appointmentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "completed" }),
+      })
+      if (res.ok) {
+        setAppointments((prev) =>
+          prev.map((apt) => (apt.id === appointmentId ? { ...apt, status: "completed" } : apt))
+        )
+      }
+    } catch (error) {
+      console.error("Error completing appointment:", error)
+    }
+  }
+
+  // Availability management
+  const handleAddSlot = async () => {
+    setSlotError(null)
+    setSlotSuccess(null)
+
+    try {
+      const res = await fetch("/api/therapy/availability", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dayOfWeek: parseInt(newSlot.dayOfWeek),
+          startTime: newSlot.startTime,
+          endTime: newSlot.endTime,
+          isRecurring: newSlot.isRecurring,
+        }),
+      })
+
+      if (res.ok) {
+        const slot = await res.json()
+        setAvailabilitySlots((prev) => [...prev, slot])
+        setSlotSuccess(`Slot added: ${DAY_NAMES[parseInt(newSlot.dayOfWeek)]} ${newSlot.startTime}-${newSlot.endTime}`)
+        setNewSlot({ dayOfWeek: "1", startTime: "09:00", endTime: "10:00", isRecurring: true })
+      } else {
+        const error = await res.json()
+        setSlotError(error.error || "Failed to add slot")
+      }
+    } catch (error) {
+      console.error("Error adding slot:", error)
+      setSlotError("Network error. Please try again.")
+    }
+  }
+
+  const handleBulkAddSlots = async () => {
+    setSlotError(null)
+    setSlotSuccess(null)
+
+    // Generate standard business hours for weekdays
+    const slots = []
+    for (let day = 1; day <= 5; day++) { // Mon-Fri
+      const hours = [
+        { start: "09:00", end: "10:00" },
+        { start: "10:00", end: "11:00" },
+        { start: "11:00", end: "12:00" },
+        { start: "14:00", end: "15:00" },
+        { start: "15:00", end: "16:00" },
+        { start: "16:00", end: "17:00" },
+      ]
+      for (const h of hours) {
+        slots.push({
+          dayOfWeek: day,
+          startTime: h.start,
+          endTime: h.end,
+          isRecurring: true,
+        })
+      }
     }
 
-    setAppointments((prev) => [...prev, newApt])
-    setIsNewAppointmentOpen(false)
-    setNewAppointment({
-      patientName: "",
-      patientEmail: "",
-      date: "",
-      time: "",
-      duration: "60",
-      type: "followup",
-      notes: "",
-    })
+    try {
+      const res = await fetch("/api/therapy/availability", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(slots),
+      })
+
+      if (res.ok) {
+        const newSlots = await res.json()
+        setAvailabilitySlots((prev) => [...prev, ...newSlots])
+        setSlotSuccess(`Added ${newSlots.length} slots for standard business hours (Mon-Fri, 9AM-5PM)`)
+      } else {
+        const error = await res.json()
+        setSlotError(error.error || "Failed to add slots")
+      }
+    } catch (error) {
+      console.error("Error adding bulk slots:", error)
+      setSlotError("Network error. Please try again.")
+    }
+  }
+
+  const handleDeleteSlot = async (slotId: string) => {
+    try {
+      const res = await fetch(`/api/therapy/availability/${slotId}`, {
+        method: "DELETE",
+      })
+      if (res.ok) {
+        setAvailabilitySlots((prev) => prev.filter((s) => s.id !== slotId))
+      }
+    } catch (error) {
+      console.error("Error deleting slot:", error)
+    }
+  }
+
+  const handleToggleSlot = async (slotId: string, isActive: boolean) => {
+    try {
+      const res = await fetch(`/api/therapy/availability/${slotId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !isActive }),
+      })
+      if (res.ok) {
+        setAvailabilitySlots((prev) =>
+          prev.map((s) => (s.id === slotId ? { ...s, isActive: !isActive } : s))
+        )
+      }
+    } catch (error) {
+      console.error("Error toggling slot:", error)
+    }
   }
 
   const todayAppointments = appointments.filter((apt) => {
@@ -252,7 +357,7 @@ const ScheduleManagement: React.FC = () => {
 
   const upcomingAppointments = appointments.filter((apt) => {
     const now = new Date()
-    return apt.scheduledTime > now && apt.status !== "cancelled"
+    return new Date(apt.scheduledTime) > now && apt.status !== "cancelled"
   })
 
   const stats = {
@@ -260,6 +365,24 @@ const ScheduleManagement: React.FC = () => {
     todayAppointments: todayAppointments.length,
     pendingAppointments: appointments.filter((apt) => apt.status === "pending").length,
     confirmedAppointments: appointments.filter((apt) => apt.status === "confirmed").length,
+    totalSlots: availabilitySlots.filter((s) => s.isActive).length,
+  }
+
+  // Group slots by day
+  const slotsByDay = DAY_NAMES.reduce((acc, day, index) => {
+    acc[index] = availabilitySlots.filter((s) => s.dayOfWeek === index && s.isActive)
+    return acc
+  }, {} as Record<number, AvailabilitySlot[]>)
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading schedule...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -287,128 +410,10 @@ const ScheduleManagement: React.FC = () => {
             </div>
             <div className="flex items-center space-x-2 md:space-x-4">
               <ThemeToggle />
-              
-              {/* Desktop Navigation */}
-              <div className="hidden md:block">
-                <Dialog open={isNewAppointmentOpen} onOpenChange={setIsNewAppointmentOpen}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      New Appointment
-                    </Button>
-                  </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>Schedule New Appointment</DialogTitle>
-                    <DialogDescription>Create a new appointment for a patient.</DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="patient-name" className="text-right">
-                        Patient Name
-                      </Label>
-                      <Input
-                        id="patient-name"
-                        value={newAppointment.patientName}
-                        onChange={(e) => setNewAppointment((prev) => ({ ...prev, patientName: e.target.value }))}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="patient-email" className="text-right">
-                        Email
-                      </Label>
-                      <Input
-                        id="patient-email"
-                        type="email"
-                        value={newAppointment.patientEmail}
-                        onChange={(e) => setNewAppointment((prev) => ({ ...prev, patientEmail: e.target.value }))}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="date" className="text-right">
-                        Date
-                      </Label>
-                      <Input
-                        id="date"
-                        type="date"
-                        value={newAppointment.date}
-                        onChange={(e) => setNewAppointment((prev) => ({ ...prev, date: e.target.value }))}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="time" className="text-right">
-                        Time
-                      </Label>
-                      <Input
-                        id="time"
-                        type="time"
-                        value={newAppointment.time}
-                        onChange={(e) => setNewAppointment((prev) => ({ ...prev, time: e.target.value }))}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="duration" className="text-right">
-                        Duration
-                      </Label>
-                      <Select
-                        value={newAppointment.duration}
-                        onValueChange={(value) => setNewAppointment((prev) => ({ ...prev, duration: value }))}
-                      >
-                        <SelectTrigger className="col-span-3">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="30">30 minutes</SelectItem>
-                          <SelectItem value="60">60 minutes</SelectItem>
-                          <SelectItem value="90">90 minutes</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="type" className="text-right">
-                        Type
-                      </Label>
-                      <Select
-                        value={newAppointment.type}
-                        onValueChange={(value: "initial" | "followup" | "emergency") =>
-                          setNewAppointment((prev) => ({ ...prev, type: value }))
-                        }
-                      >
-                        <SelectTrigger className="col-span-3">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="initial">Initial Consultation</SelectItem>
-                          <SelectItem value="followup">Follow-up Session</SelectItem>
-                          <SelectItem value="emergency">Emergency Session</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="notes" className="text-right">
-                        Notes
-                      </Label>
-                      <Textarea
-                        id="notes"
-                        value={newAppointment.notes}
-                        onChange={(e) => setNewAppointment((prev) => ({ ...prev, notes: e.target.value }))}
-                        className="col-span-3"
-                        rows={3}
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button onClick={handleCreateAppointment}>Create Appointment</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              </div>
-              
-              {/* Mobile Navigation */}
+              <Button variant="outline" size="sm" onClick={() => { fetchAppointments(); fetchAvailability(); }}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
               <MobileNavigation />
             </div>
           </div>
@@ -425,9 +430,9 @@ const ScheduleManagement: React.FC = () => {
             <TabsTrigger value="availability">Availability</TabsTrigger>
           </TabsList>
 
+          {/* ===== OVERVIEW TAB ===== */}
           <TabsContent value="overview" className="space-y-8">
-            {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Appointments</CardTitle>
@@ -438,7 +443,6 @@ const ScheduleManagement: React.FC = () => {
                   <p className="text-xs text-muted-foreground">All scheduled appointments</p>
                 </CardContent>
               </Card>
-
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Today</CardTitle>
@@ -449,7 +453,6 @@ const ScheduleManagement: React.FC = () => {
                   <p className="text-xs text-muted-foreground">Appointments today</p>
                 </CardContent>
               </Card>
-
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Pending</CardTitle>
@@ -460,7 +463,6 @@ const ScheduleManagement: React.FC = () => {
                   <p className="text-xs text-muted-foreground">Awaiting confirmation</p>
                 </CardContent>
               </Card>
-
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Confirmed</CardTitle>
@@ -469,6 +471,16 @@ const ScheduleManagement: React.FC = () => {
                 <CardContent>
                   <div className="text-2xl font-bold">{stats.confirmedAppointments}</div>
                   <p className="text-xs text-muted-foreground">Ready to go</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Active Slots</CardTitle>
+                  <Timer className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.totalSlots}</div>
+                  <p className="text-xs text-muted-foreground">Available time slots</p>
                 </CardContent>
               </Card>
             </div>
@@ -490,15 +502,15 @@ const ScheduleManagement: React.FC = () => {
                         <div className="flex items-center space-x-4">
                           <Avatar>
                             <AvatarFallback>
-                              {appointment.patientName
+                              {(appointment.patient?.name || "?")
                                 .split(" ")
                                 .map((n) => n[0])
                                 .join("")}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="font-medium">{appointment.patientName}</div>
-                            <div className="text-sm text-muted-foreground">{appointment.patientEmail}</div>
+                            <div className="font-medium">{appointment.patient?.name || "Unknown"}</div>
+                            <div className="text-sm text-muted-foreground">{appointment.patient?.email}</div>
                             {appointment.notes && (
                               <div className="text-xs text-muted-foreground mt-1">{appointment.notes}</div>
                             )}
@@ -511,9 +523,21 @@ const ScheduleManagement: React.FC = () => {
                           </div>
                           <Badge className={getTypeColor(appointment.type)}>{appointment.type}</Badge>
                           <Badge className={getStatusColor(appointment.status)}>{appointment.status}</Badge>
-                          <Button size="sm" variant="outline">
-                            <Eye className="h-3 w-3" />
-                          </Button>
+                          {appointment.status === "pending" && (
+                            <div className="flex space-x-1">
+                              <Button size="sm" variant="default" onClick={() => handleConfirmAppointment(appointment.id)}>
+                                <UserCheck className="h-3 w-3" />
+                              </Button>
+                              <Button size="sm" variant="destructive" onClick={() => handleCancelAppointment(appointment.id)}>
+                                <AlertCircle className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                          {appointment.status === "confirmed" && (
+                            <Button size="sm" variant="outline" onClick={() => handleCompleteAppointment(appointment.id)}>
+                              <CheckCircle2 className="h-3 w-3 mr-1" /> Complete
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))
@@ -535,56 +559,55 @@ const ScheduleManagement: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {upcomingAppointments.slice(0, 5).map((appointment) => (
-                    <div
-                      key={appointment.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center space-x-4">
-                        <Avatar>
-                          <AvatarFallback>
-                            {appointment.patientName
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium">{appointment.patientName}</div>
-                          <div className="text-sm text-muted-foreground">{formatDate(appointment.scheduledTime)}</div>
+                  {upcomingAppointments.length > 0 ? (
+                    upcomingAppointments.slice(0, 5).map((appointment) => (
+                      <div
+                        key={appointment.id}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center space-x-4">
+                          <Avatar>
+                            <AvatarFallback>
+                              {(appointment.patient?.name || "?")
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-medium">{appointment.patient?.name || "Unknown"}</div>
+                            <div className="text-sm text-muted-foreground">{formatDate(appointment.scheduledTime)}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                          <Badge className={getTypeColor(appointment.type)}>{appointment.type}</Badge>
+                          <Badge className={getStatusColor(appointment.status)}>{appointment.status}</Badge>
+                          {appointment.status === "pending" && (
+                            <div className="flex space-x-1">
+                              <Button size="sm" variant="default" onClick={() => handleConfirmAppointment(appointment.id)}>
+                                <UserCheck className="h-3 w-3" />
+                              </Button>
+                              <Button size="sm" variant="destructive" onClick={() => handleCancelAppointment(appointment.id)}>
+                                <AlertCircle className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center space-x-4">
-                        <Badge className={getTypeColor(appointment.type)}>{appointment.type}</Badge>
-                        <Badge className={getStatusColor(appointment.status)}>{appointment.status}</Badge>
-                        {appointment.status === "pending" && (
-                          <div className="flex space-x-1">
-                            <Button
-                              size="sm"
-                              variant="default"
-                              onClick={() => handleConfirmAppointment(appointment.id)}
-                            >
-                              <UserCheck className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleCancelAppointment(appointment.id)}
-                            >
-                              <AlertCircle className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <CalendarIcon className="h-12 w-12 mx-auto mb-4" />
+                      <p>No upcoming appointments</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
+          {/* ===== ALL APPOINTMENTS TAB ===== */}
           <TabsContent value="appointments" className="space-y-6">
-            {/* Filters */}
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center space-x-4">
@@ -616,77 +639,75 @@ const ScheduleManagement: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* All Appointments */}
             <Card>
               <CardHeader>
-                <CardTitle>All Appointments</CardTitle>
+                <CardTitle>All Appointments ({filteredAppointments.length})</CardTitle>
                 <CardDescription>Complete list of all scheduled appointments</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {filteredAppointments.map((appointment) => (
-                    <div
-                      key={appointment.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center space-x-4">
-                        <Avatar>
-                          <AvatarFallback>
-                            {appointment.patientName
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium">{appointment.patientName}</div>
-                          <div className="text-sm text-muted-foreground">{appointment.patientEmail}</div>
-                          <div className="text-sm text-muted-foreground">{formatDate(appointment.scheduledTime)}</div>
-                          {appointment.notes && (
-                            <div className="text-xs text-muted-foreground mt-1">{appointment.notes}</div>
-                          )}
+                  {filteredAppointments.length > 0 ? (
+                    filteredAppointments.map((appointment) => (
+                      <div
+                        key={appointment.id}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center space-x-4">
+                          <Avatar>
+                            <AvatarFallback>
+                              {(appointment.patient?.name || "?")
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-medium">{appointment.patient?.name || "Unknown"}</div>
+                            <div className="text-sm text-muted-foreground">{appointment.patient?.email}</div>
+                            <div className="text-sm text-muted-foreground">{formatDate(appointment.scheduledTime)}</div>
+                            {appointment.notes && (
+                              <div className="text-xs text-muted-foreground mt-1">{appointment.notes}</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                          <div className="text-right">
+                            <div className="text-sm font-medium">{formatDuration(appointment.duration)}</div>
+                          </div>
+                          <Badge className={getTypeColor(appointment.type)}>{appointment.type}</Badge>
+                          <Badge className={getStatusColor(appointment.status)}>{appointment.status}</Badge>
+                          <div className="flex space-x-1">
+                            {appointment.status === "pending" && (
+                              <>
+                                <Button size="sm" variant="default" onClick={() => handleConfirmAppointment(appointment.id)}>
+                                  <UserCheck className="h-3 w-3" />
+                                </Button>
+                                <Button size="sm" variant="destructive" onClick={() => handleCancelAppointment(appointment.id)}>
+                                  <AlertCircle className="h-3 w-3" />
+                                </Button>
+                              </>
+                            )}
+                            {appointment.status === "confirmed" && (
+                              <Button size="sm" variant="outline" onClick={() => handleCompleteAppointment(appointment.id)}>
+                                <CheckCircle2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="text-right">
-                          <div className="text-sm font-medium">{formatDuration(appointment.duration)}</div>
-                        </div>
-                        <Badge className={getTypeColor(appointment.type)}>{appointment.type}</Badge>
-                        <Badge className={getStatusColor(appointment.status)}>{appointment.status}</Badge>
-                        <div className="flex space-x-1">
-                          {appointment.status === "pending" && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="default"
-                                onClick={() => handleConfirmAppointment(appointment.id)}
-                              >
-                                <UserCheck className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleCancelAppointment(appointment.id)}
-                              >
-                                <AlertCircle className="h-3 w-3" />
-                              </Button>
-                            </>
-                          )}
-                          <Button size="sm" variant="outline">
-                            <Eye className="h-3 w-3" />
-                          </Button>
-                          <Button size="sm" variant="outline">
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <CalendarIcon className="h-12 w-12 mx-auto mb-4" />
+                      <p>No appointments match your filters</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
+          {/* ===== CALENDAR VIEW TAB ===== */}
           <TabsContent value="calendar" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card className="lg:col-span-1">
@@ -722,14 +743,14 @@ const ScheduleManagement: React.FC = () => {
                             <div className="flex items-center space-x-4">
                               <Avatar>
                                 <AvatarFallback>
-                                  {appointment.patientName
+                                  {(appointment.patient?.name || "?")
                                     .split(" ")
                                     .map((n) => n[0])
                                     .join("")}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
-                                <div className="font-medium">{appointment.patientName}</div>
+                                <div className="font-medium">{appointment.patient?.name || "Unknown"}</div>
                                 <div className="text-sm text-muted-foreground">
                                   {formatTime(appointment.scheduledTime)} • {formatDuration(appointment.duration)}
                                 </div>
@@ -738,6 +759,16 @@ const ScheduleManagement: React.FC = () => {
                             <div className="flex items-center space-x-2">
                               <Badge className={getTypeColor(appointment.type)}>{appointment.type}</Badge>
                               <Badge className={getStatusColor(appointment.status)}>{appointment.status}</Badge>
+                              {appointment.status === "pending" && (
+                                <div className="flex space-x-1">
+                                  <Button size="sm" variant="default" onClick={() => handleConfirmAppointment(appointment.id)}>
+                                    <UserCheck className="h-3 w-3" />
+                                  </Button>
+                                  <Button size="sm" variant="destructive" onClick={() => handleCancelAppointment(appointment.id)}>
+                                    <AlertCircle className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -762,44 +793,174 @@ const ScheduleManagement: React.FC = () => {
             </div>
           </TabsContent>
 
+          {/* ===== AVAILABILITY TAB ===== */}
           <TabsContent value="availability" className="space-y-6">
+            {/* Add New Slot */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Plus className="mr-2 h-5 w-5" />
+                  Add Availability Slot
+                </CardTitle>
+                <CardDescription>Define when you are available for appointments</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {slotError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 dark:bg-red-900/30 dark:border-red-800 dark:text-red-200 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" />
+                    {slotError}
+                  </div>
+                )}
+                {slotSuccess && (
+                  <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 dark:bg-green-900/30 dark:border-green-800 dark:text-green-200 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    {slotSuccess}
+                  </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                  <div>
+                    <Label htmlFor="day-of-week">Day of Week</Label>
+                    <Select value={newSlot.dayOfWeek} onValueChange={(v) => setNewSlot((p) => ({ ...p, dayOfWeek: v }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DAY_NAMES.map((day, i) => (
+                          <SelectItem key={i} value={String(i)}>{day}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="start-time">Start Time</Label>
+                    <Input
+                      id="start-time"
+                      type="time"
+                      value={newSlot.startTime}
+                      onChange={(e) => setNewSlot((p) => ({ ...p, startTime: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="end-time">End Time</Label>
+                    <Input
+                      id="end-time"
+                      type="time"
+                      value={newSlot.endTime}
+                      onChange={(e) => setNewSlot((p) => ({ ...p, endTime: e.target.value }))}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="is-recurring"
+                      checked={newSlot.isRecurring}
+                      onChange={(e) => setNewSlot((p) => ({ ...p, isRecurring: e.target.checked }))}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="is-recurring">Recurring weekly</Label>
+                  </div>
+                  <Button onClick={handleAddSlot}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Slot
+                  </Button>
+                </div>
+                <div className="mt-4 pt-4 border-t">
+                  <Button variant="outline" onClick={handleBulkAddSlots}>
+                    <CalendarDays className="h-4 w-4 mr-2" />
+                    Auto-fill Business Hours (Mon-Fri, 9AM-5PM)
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Current Availability */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Settings className="mr-2 h-5 w-5" />
-                  Availability Settings
+                  Weekly Availability
                 </CardTitle>
-                <CardDescription>Manage your weekly availability and time slots</CardDescription>
+                <CardDescription>
+                  {slotsLoading ? "Loading..." : `${availabilitySlots.filter((s) => s.isActive).length} active slots configured`}
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-6">
-                  <div>
-                    <h4 className="font-medium mb-4">Monday Time Slots</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {timeSlots.map((slot) => (
-                        <div
-                          key={slot.id}
-                          className={`p-3 border rounded-lg text-center cursor-pointer transition-colors ${
-                            slot.isAvailable
-                              ? "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-200"
-                              : "bg-red-50 border-red-200 text-red-800 dark:bg-red-900 dark:border-red-700 dark:text-red-200"
-                          }`}
-                        >
-                          <div className="font-medium">
-                            {slot.startTime} - {slot.endTime}
-                          </div>
-                          <div className="text-xs mt-1">{slot.isAvailable ? "Available" : "Booked"}</div>
-                        </div>
-                      ))}
-                    </div>
+                {slotsLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading availability...</p>
                   </div>
-
+                ) : availabilitySlots.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Timer className="h-12 w-12 mx-auto mb-4" />
-                    <p>Availability management coming soon</p>
-                    <p className="text-sm">Set your working hours and break times</p>
+                    <p className="font-medium">No availability slots configured</p>
+                    <p className="text-sm mt-1">Add time slots above or use the auto-fill button to get started quickly.</p>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-6">
+                    {DAY_NAMES.map((dayName, dayIndex) => {
+                      const daySlots = slotsByDay[dayIndex] || []
+                      if (daySlots.length === 0) return null
+                      return (
+                        <div key={dayIndex}>
+                          <h4 className="font-medium mb-3 flex items-center gap-2">
+                            <CalendarDays className="h-4 w-4" />
+                            {dayName}
+                            <Badge variant="secondary">{daySlots.length} slots</Badge>
+                          </h4>
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                            {daySlots
+                              .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                              .map((slot) => (
+                                <div
+                                  key={slot.id}
+                                  className={`p-3 border rounded-lg text-center transition-colors relative group ${
+                                    slot.isBooked
+                                      ? "bg-red-50 border-red-200 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-200"
+                                      : slot.isActive
+                                        ? "bg-green-50 border-green-200 text-green-800 dark:bg-green-900/30 dark:border-green-700 dark:text-green-200"
+                                        : "bg-muted border-muted-foreground/20 text-muted-foreground"
+                                  }`}
+                                >
+                                  <div className="font-medium text-sm">
+                                    {slot.startTime} - {slot.endTime}
+                                  </div>
+                                  <div className="text-xs mt-1">
+                                    {slot.isBooked ? "Booked" : slot.isActive ? "Available" : "Inactive"}
+                                  </div>
+                                  {slot.isRecurring && (
+                                    <div className="text-xs mt-0.5 opacity-60">
+                                      <RefreshCw className="h-3 w-3 inline" /> Recurring
+                                    </div>
+                                  )}
+                                  <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                    <button
+                                      onClick={() => handleToggleSlot(slot.id, slot.isActive)}
+                                      className="p-1 rounded hover:bg-background/80"
+                                      title={slot.isActive ? "Deactivate" : "Activate"}
+                                    >
+                                      {slot.isActive ? (
+                                        <Eye className="h-3 w-3" />
+                                      ) : (
+                                        <CheckCircle2 className="h-3 w-3" />
+                                      )}
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteSlot(slot.id)}
+                                      className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/50 text-red-600"
+                                      title="Delete slot"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
