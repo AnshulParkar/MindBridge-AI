@@ -55,6 +55,7 @@ model User {
   therapistSessions    TherapySession[] @relation("TherapistSessions")
   patientAppointments  Appointment[]    @relation("PatientAppointments")
   therapistAppointments Appointment[]   @relation("TherapistAppointments")
+  therapistAvailability TherapistAvailability[] @relation("TherapistAvailability")
   patientProfile       PatientProfile?
 }
 
@@ -150,6 +151,29 @@ model TherapySession {
   @@index([startTime])
 }
 
+// Therapist Availability Model - Defines available time slots
+model TherapistAvailability {
+  id            String   @id @default(cuid())
+  therapistId   String
+  therapist     User     @relation("TherapistAvailability", fields: [therapistId], references: [id], onDelete: Cascade)
+  dayOfWeek     Int      // 0=Sunday, 1=Monday, ..., 6=Saturday
+  startTime     String   // "09:00" format (HH:mm)
+  endTime       String   // "10:00" format (HH:mm)
+  isRecurring   Boolean  @default(true)
+  specificDate  DateTime? // For one-off slots (overrides dayOfWeek when set)
+  isBooked      Boolean  @default(false)
+  isActive      Boolean  @default(true) // Therapist can disable slots
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  appointments  Appointment[] @relation("SlotAppointments")
+
+  @@index([therapistId])
+  @@index([dayOfWeek])
+  @@index([isBooked])
+  @@index([isActive])
+  @@index([specificDate])
+}
+
 // Appointment Model - Manages appointment scheduling
 model Appointment {
   id            String   @id @default(cuid())
@@ -157,17 +181,24 @@ model Appointment {
   therapist     User     @relation("TherapistAppointments", fields: [therapistId], references: [id], onDelete: Cascade)
   patientId     String
   patient       User     @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Cascade)
+  slotId        String?  // Reference to the availability slot
+  slot          TherapistAvailability? @relation("SlotAppointments", fields: [slotId], references: [id], onDelete: SetNull)
   scheduledTime DateTime
   duration      Int      @default(3600) // Duration in seconds (default 1 hour)
   status        String   @default("pending") // "pending", "confirmed", "cancelled", "completed"
+  type          String   @default("followup") // "initial", "followup", "emergency"
   notes         String?  @db.Text
+  reminderSent  Boolean  @default(false)
+  calendarEventId String? // Google Calendar event ID
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   @@index([therapistId])
   @@index([patientId])
+  @@index([slotId])
   @@index([status])
   @@index([scheduledTime])
+  @@index([reminderSent])
 }
 
 // Patient Profile Model - Stores patient analytics and progress
