@@ -57,6 +57,8 @@ model User {
   therapistAppointments Appointment[]   @relation("TherapistAppointments")
   therapistAvailability TherapistAvailability[] @relation("TherapistAvailability")
   patientProfile       PatientProfile?
+  mentalHealthAnalytics MentalHealthAnalytics[]
+  assessmentSessions   AssessmentSession[]
 }
 
 model VerificationToken {
@@ -215,4 +217,43 @@ model PatientProfile {
   updatedAt       DateTime @updatedAt
 
   @@index([userId])
+}
+
+// Mental Health Analytics - Stores computed analytics per user per day
+model MentalHealthAnalytics {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date              DateTime @default(now())
+  mentalHealthLevel Int      @default(1) // 1=Minimal, 2=Mild, 3=Moderate, 4=ModSevere, 5=Severe
+  levelLabel        String   @default("Minimal") // Human-readable label
+  keywordsDetected  Json?    // { "stress": ["overwhelmed","pressure"], "anxiety": ["worried"] }
+  keywordCounts     Json?    // { "stress": 3, "anxiety": 2, "depression": 0, ... }
+  totalMessages     Int      @default(0)
+  positiveCount     Int      @default(0)
+  negativeCount     Int      @default(0)
+  riskFlags         Json?    // ["self_harm_mention", "crisis_language"]
+  source            String   @default("chat") // "chat" or "assessment"
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+  @@index([date])
+  @@index([userId, date])
+}
+
+// Assessment Session - Stores Q&A screening assessment results
+model AssessmentSession {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totalScore      Int      @default(0) // Sum of all answer scores
+  maxScore        Int      @default(30) // Maximum possible score
+  mentalHealthLevel Int    @default(1) // Computed level from score
+  levelLabel      String   @default("Minimal")
+  answers         Json     // [{ questionId: 1, question: "...", answer: "...", score: 2 }]
+  completedAt     DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
+  @@index([completedAt])
 }
