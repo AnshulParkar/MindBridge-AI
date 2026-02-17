@@ -9,6 +9,16 @@ interface ChatMessage {
   timestamp: Date;
   audioUrl?: string;
   avatarUrl?: string;
+  // Assessment support
+  messageType?: 'text' | 'assessment_prompt' | 'assessment_question' | 'assessment_result';
+  assessmentOptions?: { label: string; score: number }[];
+  assessmentQuestionId?: number;
+  assessmentResult?: {
+    totalScore: number;
+    maxScore: number;
+    mentalHealthLevel: number;
+    levelLabel: string;
+  };
 }
 
 interface UseChatOptions {
@@ -17,6 +27,8 @@ interface UseChatOptions {
   onAvatarResponse?: (avatarUrl?: string, audioUrl?: string) => void;
   onAvatarGenerationStart?: () => void;
 }
+
+export type { ChatMessage };
 
 export const useChat = (options: UseChatOptions = {}) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -42,6 +54,7 @@ export const useChat = (options: UseChatOptions = {}) => {
         content: content.trim(),
         emotion: currentEmotion,
         timestamp: new Date(),
+        messageType: 'text',
       };
 
       setMessages(prev => [...prev, userMessage]);
@@ -50,7 +63,6 @@ export const useChat = (options: UseChatOptions = {}) => {
       const response = await therapyApi.chat(
         content,
         currentEmotion || 'neutral',
-        // sessionId || undefined  // Commented out session functionality
         undefined
       );
 
@@ -64,6 +76,7 @@ export const useChat = (options: UseChatOptions = {}) => {
         role: 'therapist',
         content: response.response,
         timestamp: new Date(),
+        messageType: 'text',
       };
 
       // Generate TTS if enabled
@@ -71,7 +84,6 @@ export const useChat = (options: UseChatOptions = {}) => {
         try {
           const ttsResponse = await therapyApi.generateSpeech(response.response);
           if (ttsResponse.status === 'success') {
-            // Prepend backend URL to the audio path
             therapistMessage.audioUrl = ttsResponse.audio_url.startsWith('/') 
               ? `${API_CONFIG.AI_BACKEND_URL}${ttsResponse.audio_url}`
               : ttsResponse.audio_url;
@@ -83,18 +95,13 @@ export const useChat = (options: UseChatOptions = {}) => {
 
       // Generate avatar if enabled
       if (enableAvatar) {
-        // Skip API call and directly use the dummy video
         onAvatarGenerationStart?.();
-        
-        // Directly use the dummy video file from public folder
         therapistMessage.avatarUrl = '/aiVideo.mp4';
-        
         console.log('Avatar enabled: Using dummy video /aiVideo.mp4');
       }
 
       setMessages(prev => [...prev, therapistMessage]);
       
-      // Call the callback with the new avatar/audio URLs
       onAvatarResponse?.(therapistMessage.avatarUrl, therapistMessage.audioUrl);
       
       return therapistMessage;
@@ -107,6 +114,11 @@ export const useChat = (options: UseChatOptions = {}) => {
       setIsLoading(false);
     }
   }, [isLoading, enableTTS, enableAvatar, onAvatarResponse, onAvatarGenerationStart]);
+
+  /** Add a local-only message (used for assessment flow, no AI call) */
+  const addLocalMessage = useCallback((message: ChatMessage) => {
+    setMessages(prev => [...prev, message]);
+  }, []);
 
   const clearMessages = useCallback(() => {
     setMessages([]);
@@ -129,6 +141,7 @@ export const useChat = (options: UseChatOptions = {}) => {
     isLoading,
     error,
     sendMessage,
+    addLocalMessage,
     clearMessages,
     loadMessages,
     getLastUserEmotion,
