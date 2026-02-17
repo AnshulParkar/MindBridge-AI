@@ -16,6 +16,8 @@ import {
   Calendar,
   Clock,
   TrendingUp,
+  TrendingDown,
+  Minus,
   Activity,
   BarChart3,
   Target,
@@ -30,10 +32,14 @@ import {
   X,
   Home,
   MessageSquare,
+  Heart,
+  Shield,
+  ArrowRight,
 } from "lucide-react"
 import ThemeToggle from "../../../components/ThemeToggle"
 import SessionManager from "../../../lib/sessionManager"
 import SessionStatus from "../../../components/SessionStatus"
+import MentalHealthAnalyticsDashboard from "../../../components/MentalHealthAnalytics"
 
 interface SessionData {
   id: string
@@ -94,9 +100,24 @@ const Dashboard: React.FC = () => {
     dominantEmotion: "neutral",
     weeklyProgress: 0,
     weeklyGoal: 5,
-    streakDays: 7,
-    improvementScore: 85,
+    streakDays: 0,
+    improvementScore: 0,
   })
+
+  // Analytics state
+  const [analyticsData, setAnalyticsData] = useState<{
+    currentLevel: number;
+    currentLevelLabel: string;
+    trend: string;
+    keywordCounts: Record<string, number>;
+    riskFlags: string[];
+    assessmentCount: number;
+    chatAnalysisCount: number;
+    latestAssessment: { date: string; totalScore: number; maxScore: number; level: number; label: string } | null;
+    latestAnalysis: { date: string; totalMessages: number; positiveCount: number; negativeCount: number } | null;
+    timeline: { date: string; level: number; label: string; source: string }[];
+    levelInfo: { level: number; label: string; color: string; description: string };
+  } | null>(null)
 
   // Fetch dynamic data from API
   useEffect(() => {
@@ -146,15 +167,40 @@ const Dashboard: React.FC = () => {
             (s: any) => new Date(s.startTime) > oneWeekAgo && s.status === "completed"
           ).length
 
-          setStats({
+          // Calculate actual streak — consecutive days with completed sessions ending today
+          let streakDays = 0
+          if (completed.length > 0) {
+            const sessionDates = completed
+              .map((s: any) => new Date(s.startTime).toDateString())
+              .filter((v: string, i: number, a: string[]) => a.indexOf(v) === i)
+              .sort((a: string, b: string) => new Date(b).getTime() - new Date(a).getTime())
+
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            const dayMs = 24 * 60 * 60 * 1000
+
+            for (let i = 0; i < sessionDates.length; i++) {
+              const d = new Date(sessionDates[i])
+              d.setHours(0, 0, 0, 0)
+              const expectedDate = new Date(today.getTime() - i * dayMs)
+              expectedDate.setHours(0, 0, 0, 0)
+              if (d.getTime() === expectedDate.getTime()) {
+                streakDays++
+              } else {
+                break
+              }
+            }
+          }
+
+          setStats(prev => ({
+            ...prev,
             totalSessions: completed.length,
             totalDuration,
             dominantEmotion,
             weeklyProgress,
             weeklyGoal: 5,
-            streakDays: 7, // TODO: Calculate actual streak
-            improvementScore: 85, // TODO: Calculate from emotion trends
-          })
+            streakDays,
+          }))
         }
 
         // Fetch patient's appointments
@@ -162,6 +208,34 @@ const Dashboard: React.FC = () => {
         if (appointmentsRes.ok) {
           const appointmentsData = await appointmentsRes.json()
           setAppointments(appointmentsData)
+        }
+
+        // Fetch analytics data
+        try {
+          const analyticsRes = await fetch('/api/analytics?refresh=true')
+          if (analyticsRes.ok) {
+            const analytics = await analyticsRes.json()
+            setAnalyticsData(analytics)
+
+            // Compute improvement score from timeline levels
+            if (analytics.timeline && analytics.timeline.length >= 2) {
+              const levels = analytics.timeline.map((t: any) => t.level)
+              const firstHalf = levels.slice(0, Math.floor(levels.length / 2))
+              const secondHalf = levels.slice(Math.floor(levels.length / 2))
+              const avgFirst = firstHalf.reduce((a: number, b: number) => a + b, 0) / firstHalf.length
+              const avgSecond = secondHalf.reduce((a: number, b: number) => a + b, 0) / secondHalf.length
+              // Lower level = better; improvement = how much level decreased
+              const improvementRaw = ((avgFirst - avgSecond) / 4) * 100 + 50 // center at 50
+              const improvementScore = Math.max(0, Math.min(100, Math.round(improvementRaw)))
+              setStats(prev => ({ ...prev, improvementScore }))
+            } else if (analytics.currentLevel) {
+              // Single data point: derive from level (lower = better)
+              const improvementScore = Math.round(((5 - analytics.currentLevel) / 4) * 100)
+              setStats(prev => ({ ...prev, improvementScore }))
+            }
+          }
+        } catch (analyticsErr) {
+          console.error('Error fetching analytics:', analyticsErr)
         }
       } catch (error) {
         console.error("Error fetching dashboard data:", error)
@@ -370,51 +444,198 @@ const Dashboard: React.FC = () => {
                   <TrendingUp className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.streakDays} days</div>
-                  <p className="text-xs text-gray-600 dark:text-gray-300">Consecutive therapy days</p>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.streakDays} {stats.streakDays === 1 ? 'day' : 'days'}</div>
+                  <p className="text-xs text-gray-600 dark:text-gray-300">{stats.streakDays > 0 ? 'Consecutive therapy days' : 'Start a session to build your streak!'}</p>
                 </CardContent>
               </Card>
 
               <Card className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg transition-colors duration-300">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-900 dark:text-white">Improvement Score</CardTitle>
+                  <CardTitle className="text-sm font-medium text-gray-900 dark:text-white">Wellness Score</CardTitle>
                   <Activity className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.improvementScore}%</div>
-                  <p className="text-xs text-gray-600 dark:text-gray-300">Based on emotion trends</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-300">
+                    {analyticsData?.trend === 'improving' ? '↗ Improving over time' : analyticsData?.trend === 'worsening' ? '↘ Needs attention' : 'Based on analytics'}
+                  </p>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Weekly Progress */}
-            <Card className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg transition-colors duration-300">
-              <CardHeader>
-                <CardTitle className="flex items-center text-gray-900 dark:text-white">
-                  <Target className="mr-2 h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  Weekly Progress
-                </CardTitle>
-                <CardDescription className="text-gray-600 dark:text-gray-300">
-                  You&apos;ve completed {stats.weeklyProgress} out of {stats.weeklyGoal} sessions this week
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-900 dark:text-white">Progress</span>
-                  <span className="text-gray-900 dark:text-white">
-                    {stats.weeklyProgress}/{stats.weeklyGoal} sessions
-                  </span>
-                </div>
-                <Progress value={progressPercentage} className="h-3 bg-gray-200 dark:bg-gray-700" />
-                <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300">
-                  <Calendar className="h-4 w-4" />
-                  <span>{stats.weeklyGoal - stats.weeklyProgress} sessions remaining this week</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Current Mood & Quick Actions */}
+            {/* Mental Health Level + Weekly Progress */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Mental Health Level Card */}
+              <Card className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg transition-colors duration-300">
+                <CardHeader>
+                  <CardTitle className="flex items-center text-gray-900 dark:text-white">
+                    <Heart className="mr-2 h-5 w-5 text-rose-500" />
+                    Mental Health Level
+                  </CardTitle>
+                  <CardDescription className="text-gray-600 dark:text-gray-300">
+                    {analyticsData ? 'Based on your chats & assessments' : 'Start chatting to generate insights'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {analyticsData ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-4">
+                        <div
+                          className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-md"
+                          style={{ backgroundColor: analyticsData.levelInfo?.color || '#6b7280' }}
+                        >
+                          {analyticsData.currentLevel}
+                        </div>
+                        <div>
+                          <div className="text-xl font-bold text-gray-900 dark:text-white">{analyticsData.currentLevelLabel}</div>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{analyticsData.levelInfo?.description}</p>
+                        </div>
+                      </div>
+                      {/* Level progress bar */}
+                      <div>
+                        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                          <span>Minimal</span>
+                          <span>Severe</span>
+                        </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                          <div className="h-3 rounded-full transition-all duration-700" style={{ width: `${(analyticsData.currentLevel / 5) * 100}%`, backgroundColor: analyticsData.levelInfo?.color || '#6b7280' }} />
+                        </div>
+                      </div>
+                      {/* Trend badge */}
+                      <div className="flex items-center space-x-3">
+                        <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                          analyticsData.trend === 'improving' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
+                          : analyticsData.trend === 'worsening' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                        }`}>
+                          {analyticsData.trend === 'improving' && <TrendingUp className="mr-1 h-3 w-3" />}
+                          {analyticsData.trend === 'worsening' && <TrendingDown className="mr-1 h-3 w-3" />}
+                          {analyticsData.trend === 'stable' && <Minus className="mr-1 h-3 w-3" />}
+                          {analyticsData.trend === 'improving' ? 'Improving' : analyticsData.trend === 'worsening' ? 'Needs attention' : 'Stable'}
+                        </div>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                          {analyticsData.chatAnalysisCount} chat analyses · {analyticsData.assessmentCount} assessments
+                        </span>
+                      </div>
+                      {/* Risk flags */}
+                      {analyticsData.riskFlags && analyticsData.riskFlags.length > 0 && (
+                        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                          <div className="flex items-center text-red-700 dark:text-red-400 text-sm font-medium mb-1">
+                            <Shield className="mr-1 h-4 w-4" /> Risk Flags Detected
+                          </div>
+                          <ul className="text-xs text-red-600 dark:text-red-400 space-y-0.5">
+                            {analyticsData.riskFlags.map((flag: string, i: number) => (
+                              <li key={i}>• {flag}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-gray-400 dark:text-gray-500">
+                      <Heart className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">No analytics data yet</p>
+                      <p className="text-xs mt-1">Start a session to generate insights</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Weekly Progress */}
+              <Card className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg transition-colors duration-300">
+                <CardHeader>
+                  <CardTitle className="flex items-center text-gray-900 dark:text-white">
+                    <Target className="mr-2 h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    Weekly Progress
+                  </CardTitle>
+                  <CardDescription className="text-gray-600 dark:text-gray-300">
+                    You&apos;ve completed {stats.weeklyProgress} out of {stats.weeklyGoal} sessions this week
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-900 dark:text-white">Progress</span>
+                    <span className="text-gray-900 dark:text-white">
+                      {stats.weeklyProgress}/{stats.weeklyGoal} sessions
+                    </span>
+                  </div>
+                  <Progress value={progressPercentage} className="h-3 bg-gray-200 dark:bg-gray-700" />
+                  <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300">
+                    <Calendar className="h-4 w-4" />
+                    <span>
+                      {stats.weeklyProgress >= stats.weeklyGoal
+                        ? '🎉 Weekly goal achieved!'
+                        : `${stats.weeklyGoal - stats.weeklyProgress} sessions remaining this week`}
+                    </span>
+                  </div>
+                  {/* Mini-timeline of recent levels */}
+                  {analyticsData?.timeline && analyticsData.timeline.length > 0 && (
+                    <div className="pt-3 border-t dark:border-gray-700">
+                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Recent Level History</div>
+                      <div className="flex items-end space-x-1 h-12">
+                        {analyticsData.timeline.slice(-14).map((entry, i) => {
+                          const levelColors: Record<number, string> = { 1: '#22c55e', 2: '#f59e0b', 3: '#f97316', 4: '#ef4444', 5: '#dc2626' }
+                          return (
+                            <div key={i} className="flex-1 rounded-t" style={{ height: `${(entry.level / 5) * 100}%`, backgroundColor: levelColors[entry.level] || '#6b7280', minHeight: '4px' }} title={`${entry.label} — ${new Date(entry.date).toLocaleDateString()}`} />
+                          )
+                        })}
+                      </div>
+                      <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                        <span>{new Date(analyticsData.timeline.slice(-14)[0]?.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                        <span>Today</span>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Keyword Breakdown + Mood + Quick Actions */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Keyword Breakdown */}
+              <Card className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg transition-colors duration-300">
+                <CardHeader>
+                  <CardTitle className="flex items-center text-gray-900 dark:text-white">
+                    <BarChart3 className="mr-2 h-5 w-5 text-indigo-500" />
+                    Keyword Breakdown
+                  </CardTitle>
+                  <CardDescription className="text-gray-600 dark:text-gray-300">Detected topics from your chats</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {analyticsData?.keywordCounts && Object.keys(analyticsData.keywordCounts).length > 0 ? (
+                    <div className="space-y-3">
+                      {Object.entries(analyticsData.keywordCounts)
+                        .sort(([, a], [, b]) => (b as number) - (a as number))
+                        .slice(0, 6)
+                        .map(([category, count]) => {
+                          const maxCount = Math.max(...Object.values(analyticsData.keywordCounts) as number[])
+                          const catColors: Record<string, string> = {
+                            stress: '#f59e0b', anxiety: '#8b5cf6', depression: '#3b82f6',
+                            anger: '#ef4444', self_harm: '#dc2626', loneliness: '#6366f1', positive: '#22c55e',
+                          }
+                          return (
+                            <div key={category}>
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="capitalize text-gray-700 dark:text-gray-300">{category.replace('_', ' ')}</span>
+                                <span className="text-gray-500 dark:text-gray-400">{count as number}</span>
+                              </div>
+                              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                <div className="h-2 rounded-full transition-all duration-500" style={{ width: `${((count as number) / maxCount) * 100}%`, backgroundColor: catColors[category] || '#6b7280' }} />
+                              </div>
+                            </div>
+                          )
+                        })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-gray-400 dark:text-gray-500">
+                      <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">No keyword data yet</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Current Mood Trend */}
               <Card className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg transition-colors duration-300">
                 <CardHeader>
                   <CardTitle className="flex items-center text-gray-900 dark:text-white">
@@ -423,7 +644,7 @@ const Dashboard: React.FC = () => {
                   </CardTitle>
                   <CardDescription className="text-gray-600 dark:text-gray-300">Your most frequent emotion this week</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                   <div className="flex items-center space-x-4">
                     <div className="text-4xl">{getEmotionEmoji(stats.dominantEmotion)}</div>
                     <div>
@@ -431,27 +652,70 @@ const Dashboard: React.FC = () => {
                       <p className="text-sm text-gray-600 dark:text-gray-300">Dominant emotion</p>
                     </div>
                   </div>
+                  {/* Latest assessment mini-view */}
+                  {analyticsData?.latestAssessment && (
+                    <div className="pt-3 border-t dark:border-gray-700">
+                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Latest Assessment</div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ backgroundColor: ({ 1: '#22c55e', 2: '#f59e0b', 3: '#f97316', 4: '#ef4444', 5: '#dc2626' } as Record<number, string>)[analyticsData.latestAssessment.level] || '#6b7280' }}>
+                            {analyticsData.latestAssessment.level}
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">{analyticsData.latestAssessment.label}</div>
+                            <div className="text-xs text-gray-400">{analyticsData.latestAssessment.totalScore}/{analyticsData.latestAssessment.maxScore}</div>
+                          </div>
+                        </div>
+                        <span className="text-xs text-gray-400">{new Date(analyticsData.latestAssessment.date).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  )}
+                  {/* Latest chat analysis mini-view */}
+                  {analyticsData?.latestAnalysis && (
+                    <div className="pt-3 border-t dark:border-gray-700">
+                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Latest Chat Analysis</div>
+                      <div className="flex items-center space-x-4 text-sm">
+                        <span className="text-gray-700 dark:text-gray-300">{analyticsData.latestAnalysis.totalMessages} messages analyzed</span>
+                        <span className="text-green-600 dark:text-green-400">+{analyticsData.latestAnalysis.positiveCount}</span>
+                        <span className="text-red-500 dark:text-red-400">-{analyticsData.latestAnalysis.negativeCount}</span>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
+              {/* Quick Actions */}
               <Card className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg transition-colors duration-300">
                 <CardHeader>
                   <CardTitle className="text-gray-900 dark:text-white">Quick Actions</CardTitle>
-                  <CardDescription className="text-gray-600 dark:text-gray-300">Common tasks and tools</CardDescription>
+                  <CardDescription className="text-gray-600 dark:text-gray-300">Jump to key areas</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button variant="outline" className="w-full justify-start bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                    View Emotion Reports
+                  <Link href="/patient/session">
+                    <Button variant="outline" className="w-full justify-between bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white hover:bg-blue-50 dark:hover:bg-blue-900/20 mb-3">
+                      <span className="flex items-center"><Play className="mr-2 h-4 w-4 text-blue-500" />Start New Session</span>
+                      <ArrowRight className="h-4 w-4 text-gray-400" />
+                    </Button>
+                  </Link>
+                  <Button variant="outline" className="w-full justify-between bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white hover:bg-purple-50 dark:hover:bg-purple-900/20" onClick={() => {
+                    const el = document.querySelector('[data-value="progress"]') as HTMLButtonElement
+                    el?.click()
+                  }}>
+                    <span className="flex items-center"><BarChart3 className="mr-2 h-4 w-4 text-purple-500" />View Full Analytics</span>
+                    <ArrowRight className="h-4 w-4 text-gray-400" />
                   </Button>
-                  <Button variant="outline" className="w-full justify-start bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <Target className="mr-2 h-4 w-4" />
-                    Set Therapy Goals
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Customize Experience
-                  </Button>
+                  <Link href="/patient/appointments">
+                    <Button variant="outline" className="w-full justify-between bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white hover:bg-green-50 dark:hover:bg-green-900/20 mt-3">
+                      <span className="flex items-center"><Calendar className="mr-2 h-4 w-4 text-green-500" />Book Appointment</span>
+                      <ArrowRight className="h-4 w-4 text-gray-400" />
+                    </Button>
+                  </Link>
+                  <Link href="/peer-support">
+                    <Button variant="outline" className="w-full justify-between bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white hover:bg-orange-50 dark:hover:bg-orange-900/20 mt-3">
+                      <span className="flex items-center"><MessageSquare className="mr-2 h-4 w-4 text-orange-500" />Peer Support Forums</span>
+                      <ArrowRight className="h-4 w-4 text-gray-400" />
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             </div>
@@ -763,37 +1027,7 @@ const Dashboard: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="progress" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg transition-colors duration-300">
-                <CardHeader>
-                  <CardTitle className="text-gray-900 dark:text-white">Emotion Analytics</CardTitle>
-                  <CardDescription className="text-gray-600 dark:text-gray-300">Track your emotional patterns over time</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                      <BarChart3 className="h-12 w-12 mx-auto mb-4" />
-                      <p>Detailed analytics coming soon</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg transition-colors duration-300">
-                <CardHeader>
-                  <CardTitle className="text-gray-900 dark:text-white">Therapy Goals</CardTitle>
-                  <CardDescription className="text-gray-600 dark:text-gray-300">Set and track your mental health objectives</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                      <Target className="h-12 w-12 mx-auto mb-4" />
-                      <p>Goal tracking coming soon</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <MentalHealthAnalyticsDashboard />
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
