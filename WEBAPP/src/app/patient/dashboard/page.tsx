@@ -35,6 +35,7 @@ import {
   Heart,
   Shield,
   ArrowRight,
+  Video,
 } from "lucide-react"
 import ThemeToggle from "../../../components/ThemeToggle"
 import SessionManager from "../../../lib/sessionManager"
@@ -326,6 +327,13 @@ const Dashboard: React.FC = () => {
                   Start Session
                 </Link>
                 <Link
+                  href="/patient/virtual-session"
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 transition-colors flex items-center"
+                >
+                  <Video className="mr-2 h-4 w-4" />
+                  Virtual Session
+                </Link>
+                <Link
                   href="/peer-support"
                   className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center"
                 >
@@ -372,6 +380,14 @@ const Dashboard: React.FC = () => {
               >
                 <Play className="inline mr-2 h-4 w-4" />
                 Start Session
+              </Link>
+              <Link
+                href="/patient/virtual-session"
+                className="block px-4 py-2 text-purple-600 dark:text-purple-400 font-medium"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <Video className="inline mr-2 h-4 w-4" />
+                Virtual Session
               </Link>
               <div className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 flex items-center">
                 <div className={`w-2 h-2 rounded-full mr-2 ${sessionInfo.expiringSoon ? "bg-yellow-500" : "bg-green-500"}`} />
