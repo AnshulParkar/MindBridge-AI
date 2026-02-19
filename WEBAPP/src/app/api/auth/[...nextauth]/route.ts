@@ -1,8 +1,9 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/lib/db";
-import { compare } from "bcryptjs";
+import { compare, hash } from "bcryptjs";
 
 const handler = NextAuth({
 	adapter: PrismaAdapter(prisma),
@@ -46,6 +47,18 @@ const handler = NextAuth({
 	// Trust proxy for ngrok
 	useSecureCookies: process.env.NEXTAUTH_URL?.startsWith('https://') ?? false,
 	providers: [
+		// Google OAuth Provider
+		GoogleProvider({
+			clientId: process.env.GOOGLE_CLIENT_ID || "",
+			clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+			authorization: {
+				params: {
+					prompt: "consent",
+					access_type: "offline",
+					response_type: "code",
+				},
+			},
+		}),
 		CredentialsProvider({
 			name: "Credentials",
 			credentials: {
@@ -67,6 +80,9 @@ const handler = NextAuth({
 
 				if (!user) return null;
 
+				// Check if user is banned
+				if (user.isBanned) return null;
+
 				const isValid = await compare(credentials.password, user.password);
 				if (!isValid) return null;
 
@@ -74,35 +90,78 @@ const handler = NextAuth({
 					id: user.id,
 					email: user.email,
 					role: user.role,
+					name: user.name,
+					isProfileComplete: user.isProfileComplete,
 				};
 			},
 		}),
 	],
 	callbacks: {
-		async jwt({ token, user }) {
+		async signIn({ user, account }) {
+			// For Google sign-in, handle user creation/linking
+			if (account?.provider === "google") {
+				const existingUser = await prisma.user.findUnique({
+					where: { email: user.email! },
+				});
+
+				if (existingUser) {
+					// Check if banned
+					if (existingUser.isBanned) return false;
+					return true;
+				}
+
+				// Create new user with Google - default to patient role
+				// They'll select role during profile completion
+				const randomPassword = await hash(Math.random().toString(36), 10);
+				await prisma.user.create({
+					data: {
+						email: user.email!,
+						name: user.name || null,
+						password: randomPassword,
+						role: "patient",
+						image: user.image || null,
+						isProfileComplete: false,
+					},
+				});
+			}
+			return true;
+		},
+		async jwt({ token, user, account }) {
 			// Add user role and id to token on signin
 			if (user) {
-				const u = user as { role?: string; id?: string };
+				const u = user as { role?: string; id?: string; isProfileComplete?: boolean };
 				token.role = u.role;
 				token.id = u.id;
+				token.isProfileComplete = u.isProfileComplete;
+			}
+
+			// For Google sign-in, fetch role from DB
+			if (account?.provider === "google" && token.email) {
+				const dbUser = await prisma.user.findUnique({
+					where: { email: token.email as string },
+				});
+				if (dbUser) {
+					token.role = dbUser.role;
+					token.id = dbUser.id;
+					token.isProfileComplete = dbUser.isProfileComplete;
+				}
 			}
 			
 			// Check if token is expired (server-side validation)
 			const now = Date.now() / 1000;
 			const expTime = token.exp as number;
 			if (expTime && now > expTime) {
-				// Token is expired, but we can't return null in JWT callback
-				// NextAuth will handle expiration automatically
 				console.log('JWT token expired for user:', token.sub);
 			}
 			
 			return token;
 		},
 		async session({ session, token }) {
-			// Add role and id to session
+			// Add role, id, and profile status to session
 			if (token && session.user) {
-				(session.user as { role?: string; id?: string }).role = typeof token.role === 'string' ? token.role : undefined;
+				(session.user as { role?: string; id?: string; isProfileComplete?: boolean }).role = typeof token.role === 'string' ? token.role : undefined;
 				(session.user as { id?: string }).id = typeof token.id === 'string' ? token.id : undefined;
+				(session.user as { isProfileComplete?: boolean }).isProfileComplete = !!token.isProfileComplete;
 			}
 			return session;
 		},
