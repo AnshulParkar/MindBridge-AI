@@ -11,8 +11,9 @@ const useTextToSpeech = () => {
 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = "en-US";
-      utterance.rate = 1;
-      utterance.pitch = 1;
+      utterance.rate = 1.5; // Adjust rate for a more natural sound
+      utterance.pitch = 1.5; // Adjust pitch for a more natural sound  
+      utterance.volume = 1; // Max volume
 
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => {
