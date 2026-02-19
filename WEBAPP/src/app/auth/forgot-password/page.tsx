@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Image from "next/image";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ThemeToggle from "../../../components/ThemeToggle";
@@ -93,9 +94,21 @@ export default function ForgotPasswordPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setSuccess("Password reset successfully!");
+        setSuccess("Password reset successfully! Signing you in...");
         setStep("done");
-        setTimeout(() => router.push("/auth/signin"), 2000);
+        // Auto sign-in with new password and redirect to dashboard
+        const signInRes = await signIn("credentials", {
+          email: form.email,
+          password: form.newPassword,
+          role: form.role,
+          redirect: false,
+        });
+        if (signInRes?.ok) {
+          const dashboard = form.role === "therapist" ? "/therapist/dashboard" : "/patient/dashboard";
+          setTimeout(() => router.push(dashboard), 1500);
+        } else {
+          setTimeout(() => router.push("/auth/signin"), 2000);
+        }
       } else {
         setError(data.error || "Failed to reset password");
       }
@@ -104,11 +117,6 @@ export default function ForgotPasswordPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Skip Reset (user verified but doesn't want to change password now)
-  const handleSkip = () => {
-    router.push("/auth/signin");
   };
 
   return (
@@ -240,9 +248,6 @@ export default function ForgotPasswordPage() {
                 <button type="submit" disabled={isLoading} className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center">
                   {isLoading ? <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />Resetting...</> : "Reset Password"}
                 </button>
-                <button type="button" onClick={handleSkip} className="w-full text-gray-500 dark:text-gray-400 py-2 text-sm hover:underline">
-                  Skip for now
-                </button>
               </form>
             </>
           )}
@@ -252,10 +257,8 @@ export default function ForgotPasswordPage() {
             <div className="text-center py-8">
               <div className="text-6xl mb-4">✅</div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Password Reset!</h2>
-              <p className="text-gray-600 dark:text-gray-300 mb-6">Your password has been reset successfully. Redirecting to sign in...</p>
-              <Link href="/auth/signin" className="text-blue-600 dark:text-blue-400 hover:underline font-semibold">
-                Go to Sign In
-              </Link>
+              <p className="text-gray-600 dark:text-gray-300 mb-6">Your password has been reset successfully. Redirecting to your dashboard...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
             </div>
           )}
 
