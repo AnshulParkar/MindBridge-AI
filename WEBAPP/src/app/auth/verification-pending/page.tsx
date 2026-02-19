@@ -1,10 +1,56 @@
 "use client";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { signOut } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import ThemeToggle from "../../../components/ThemeToggle";
 
 export default function VerificationPendingPage() {
+  const { data: session } = useSession();
+  const router = useRouter();
+  const [checking, setChecking] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
+
+  const checkStatus = async () => {
+    setChecking(true);
+    setStatusMessage("");
+    try {
+      const userId = session?.user?.id;
+      if (!userId) {
+        setStatusMessage("Please sign in again.");
+        setChecking(false);
+        return;
+      }
+
+      const res = await fetch("/api/auth/check-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+
+      if (data.therapistVerification) {
+        if (data.therapistVerification.status === "approved") {
+          setStatusMessage("Your account has been approved! Redirecting...");
+          setTimeout(() => router.push("/therapist/dashboard"), 1000);
+          return;
+        }
+        if (data.therapistVerification.status === "rejected") {
+          const reason = data.therapistVerification.rejectionReason || "No reason provided";
+          setStatusMessage(`Your profile was rejected: ${reason}. Redirecting to update your profile...`);
+          setTimeout(() => router.push("/auth/complete-profile"), 2000);
+          return;
+        }
+      }
+      setStatusMessage("Still pending. Please check again later.");
+    } catch {
+      setStatusMessage("Could not check status. Try again.");
+    } finally {
+      setChecking(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-orange-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
       <header className="bg-white dark:bg-gray-800 shadow-sm transition-colors duration-300">
@@ -35,12 +81,28 @@ export default function VerificationPendingPage() {
               Until then, you will see this page when you log in.
             </p>
           </div>
+
+          {statusMessage && (
+            <div className={`rounded-lg p-4 mb-4 text-sm ${
+              statusMessage.includes("approved") ? "bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 text-green-700 dark:text-green-200" :
+              statusMessage.includes("rejected") ? "bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-200" :
+              "bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-200"
+            }`}>
+              <p>{statusMessage}</p>
+            </div>
+          )}
+
           <div className="space-y-3">
             <button
-              onClick={() => window.location.reload()}
-              className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              onClick={checkStatus}
+              disabled={checking}
+              className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center"
             >
-              Check Status
+              {checking ? (
+                <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />Checking...</>
+              ) : (
+                "Check Status"
+              )}
             </button>
             <button
               onClick={() => signOut({ callbackUrl: "/" })}
