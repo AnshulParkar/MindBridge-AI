@@ -42,13 +42,19 @@ model User {
   email         String         @unique
   emailVerified DateTime?
   password      String
-  role          String         @default("patient") // "patient" or "therapist"
+  role          String         @default("patient") // "patient", "therapist", or "admin"
   image         String?
+  isProfileComplete Boolean   @default(false) // Whether first-time registration info is filled
+  isBanned      Boolean        @default(false)
   createdAt     DateTime       @default(now())
   accounts      Account[]
   sessions      Session[]
   chatMessages  ChatMessage[]  // User's chat messages
   chatSessions  ChatSession[]  // User's chat sessions
+  
+  // Profile relations
+  patientDetails    PatientDetails?
+  therapistProfile  TherapistProfile?
   
   // Therapy-related relations
   therapySessions      TherapySession[] @relation("PatientSessions")
@@ -59,6 +65,7 @@ model User {
   patientProfile       PatientProfile?
   mentalHealthAnalytics MentalHealthAnalytics[]
   assessmentSessions   AssessmentSession[]
+  otpTokens            OtpToken[]
 }
 
 model VerificationToken {
@@ -256,4 +263,67 @@ model AssessmentSession {
 
   @@index([userId])
   @@index([completedAt])
+}
+
+// OTP Token - For forgot password email verification
+model OtpToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  otp       String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([otp])
+}
+
+// Patient Details - First-time registration details for patients
+model PatientDetails {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName    String
+  dateOfBirth DateTime
+  gender      String
+  age         Int
+  height      String?  // Optional
+  weight      String?  // Optional
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// Therapist Profile - First-time registration & verification details for therapists
+model TherapistProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName        String
+  dateOfBirth     DateTime
+  gender          String
+  age             Int
+  degree          String   // e.g. "MD Psychiatry", "PhD Clinical Psychology"
+  experience      String   // e.g. "5 years"
+  hospitalAffiliation String @db.Text // LOR of Hospitals
+  photoUrl        String   // Compulsory photo
+  isVerified      Boolean  @default(false) // Admin must verify
+  verificationStatus String @default("pending") // "pending", "approved", "rejected"
+  rejectionReason String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isVerified])
+  @@index([verificationStatus])
+}
+
+// Admin User - Stored directly in DB, no registration/forgot-password
+model AdminUser {
+  id        String   @id @default(cuid())
+  adminId   String   @unique // "123456"
+  password  String   // "123456" (stored as hash)
+  createdAt DateTime @default(now())
 }
