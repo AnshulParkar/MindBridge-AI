@@ -6,6 +6,11 @@
  * 
  * Run with: npx tsx scripts/migrate-messages-to-sessions.ts
  * or: node --loader tsx scripts/migrate-messages-to-sessions.ts
+ * 
+ * When to run it
+Run it after deploying schema/session changes, so old messages remain visible and organized in the new session-based model.
+Without this migration, old messages may be missing from session-based queries/UI.
+ * 
  */
 
 import { PrismaClient } from '@prisma/client';
