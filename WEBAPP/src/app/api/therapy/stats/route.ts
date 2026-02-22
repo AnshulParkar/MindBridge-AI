@@ -32,11 +32,12 @@ export async function GET(req: Request) {
     })
 
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    const activePatients = await prisma.therapySession.count({
+    const activePatients = await prisma.therapySession.findMany({
       where: {
         therapistId,
         startTime: { gte: oneWeekAgo }
       },
+      select: { patientId: true },
       distinct: ["patientId"]
     })
 
