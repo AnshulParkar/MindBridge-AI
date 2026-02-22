@@ -7,6 +7,20 @@
  * Run with: npx tsx scripts/migrate-messages-to-sessions.ts
  * or: node --loader tsx scripts/migrate-messages-to-sessions.ts
  * 
+ * This script is a one-time data migration utility.
+
+Why it is used
+It is used to fix older data after introducing chatSession support:
+
+Some existing chatMessage records have sessionId = null (orphaned messages).
+The app now expects messages to belong to a session.
+This script:
+Finds orphaned messages.
+Groups them per user.
+Creates (or reuses) a default session named "Previous Conversations" for each user.
+Updates those messages to point to that session.
+Prints a summary and remaining orphaned count.
+ * 
  * When to run it
 Run it after deploying schema/session changes, so old messages remain visible and organized in the new session-based model.
 Without this migration, old messages may be missing from session-based queries/UI.
