@@ -2,18 +2,42 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ThemeToggle from '../components/ThemeToggle';
 import { useSession, signOut } from 'next-auth/react';
 
 export default function Home() {
   const { data: session, status } = useSession();
   const [logoError, setLogoError] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    let app: any;
+    (async () => {
+      const { Application } = await import('@splinetool/runtime');
+      if (canvasRef.current) {
+        app = new Application(canvasRef.current);
+        await app.load('https://prod.spline.design/6JLico0CrrctmQ7N/scene.splinecode');
+      }
+    })();
+    return () => {
+      app?.dispose();
+    };
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm transition-colors duration-300">
+    <div className="min-h-screen relative transition-colors duration-300">
+      {/* Spline 3D Background */}
+      <canvas
+        ref={canvasRef}
+        className="fixed inset-0 w-full h-full z-0"
+      />
+      {/* Overlay for text readability */}
+      <div className="fixed inset-0 z-[1] bg-white/30 dark:bg-gray-900/50 pointer-events-none" />
+
+      {/* Page content */}
+      <div className="relative z-10">
+      <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -44,7 +68,7 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">MindBridge</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Emotion-Aware AI Therapist</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">AI Therapy Session</p>
               </div>
             </div>
             <nav className="flex items-center space-x-4">
@@ -116,12 +140,12 @@ export default function Home() {
         {/* Hero Section */}
         <div className="text-center mb-16">
           <h2 className="text-5xl font-bold text-gray-900 dark:text-white mb-6">
-            AI-Powered Therapy with{' '}
-            <span className="text-blue-600 dark:text-blue-400">Real-Time Emotion Detection</span>
+            Your AI-Powered{' '}
+            <span className="text-blue-600 dark:text-blue-400">Mental Health Companion</span>
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
-            Experience personalized therapy sessions with our advanced AI that understands your emotions 
-            through facial recognition, provides empathetic responses, and with live humanlike interactions.
+            Chat or talk with an AI Therapy Session, book sessions with real therapists, 
+            track your mental health over time, and connect anonymously with peers — all in one platform.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -153,7 +177,7 @@ export default function Home() {
                 </Link>
                 <Link
                   href="/auth/signin"
-                  className="px-8 py-4 bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 text-lg font-semibold rounded-lg border-2 border-blue-600 dark:border-blue-400 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors"
+                  className="px-8 py-4 bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm text-blue-600 dark:text-blue-400 text-lg font-semibold rounded-lg border-2 border-blue-600 dark:border-blue-400 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors"
                 >
                   Login
                 </Link>
@@ -162,106 +186,156 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
+        {/* Core Features */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
+            <div className="text-4xl mb-4">🤖</div>
+            <h3 className="text-xl font-semibold text-black dark:text-white mb-2">AI Therapy Chat</h3>
+            <p className="text-gray-600 dark:text-gray-300">
+              RAG-powered conversations using Groq LLaMA 3.1 with mental health knowledge retrieval via Pinecone vector database
+            </p>
+          </div>
+
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
+            <div className="text-4xl mb-4">🎙️</div>
+            <h3 className="text-xl font-semibold text-black dark:text-white mb-2">Virtual Therapy Sessions</h3>
+            <p className="text-gray-600 dark:text-gray-300">
+              Full voice therapy with speech-to-text input, AI processing, and text-to-speech output in real-time
+            </p>
+          </div>
+
+          {/* <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
             <div className="text-4xl mb-4">🎭</div>
             <h3 className="text-xl font-semibold text-black dark:text-white mb-2">Emotion Detection</h3>
             <p className="text-gray-600 dark:text-gray-300">
-              Real-time facial emotion recognition using advanced computer vision and AI
+              Real-time webcam-based facial emotion recognition detecting 7 emotions with confidence scores via OpenCV
             </p>
-          </div>
+          </div> */}
 
           <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
             <div className="text-4xl mb-4">🤖</div>
             <h3 className="text-xl text-black dark:text-white font-semibold mb-2">AI Therapist</h3>
             <p className="text-gray-600 dark:text-gray-300">
-              Gemini-2.5-flash powered conversations that adapt to your emotional state and needs
+              Groq LLaMA 3.1 powered conversations that adapt to your state and needs
             </p>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
-            <div className="text-4xl mb-4">👤</div>
-            <h3 className="text-xl font-semibold text-black dark:text-white mb-2">HumanLike Interaction</h3>
-            <p className="text-gray-600 dark:text-gray-300">
-              Talking avatar responses with natural voice synthesis for immersive experience
-            </p>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
             <div className="text-4xl mb-4">📊</div>
-            <h3 className="text-xl font-semibold text-black dark:text-white mb-2">Progress Tracking</h3>
+            <h3 className="text-xl font-semibold text-black dark:text-white mb-2">Mental Health Analytics</h3>
             <p className="text-gray-600 dark:text-gray-300">
-              Detailed analytics and insights into your emotional patterns and therapy progress
+              5-level severity scoring, keyword analysis across 7 categories, risk flag detection, trend tracking, and PHQ-9/GAD-7 assessments
+            </p>
+          </div>
+
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
+            <div className="text-4xl mb-4">📅</div>
+            <h3 className="text-xl font-semibold text-black dark:text-white mb-2">Therapist Appointments</h3>
+            <p className="text-gray-600 dark:text-gray-300">
+              Book sessions with verified therapists, manage availability slots, and get email reminders with Google Calendar integration
             </p>
           </div>
         </div>
 
-        {/* How It Works */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 mb-16 border dark:border-gray-700 transition-colors duration-300">
-          <h3 className="text-3xl font-bold text-center mb-12 text-black dark:text-white">How MindBridge Works</h3>
+        {/* Platform Roles */}
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-lg p-8 mb-16 border dark:border-gray-700 transition-colors duration-300">
+          <h3 className="text-3xl font-bold text-center mb-12 text-black dark:text-white">Built for Everyone</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="bg-blue-100 dark:bg-blue-900 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 transition-colors duration-300">
-          <span className="text-2xl">📹</span>
+                <span className="text-2xl">💚</span>
               </div>
-              <h4 className="text-xl font-semibold mb-2 text-black dark:text-white">1. Video Analysis</h4>
-              <p className="text-black dark:text-gray-300">
-                Our AI analyzes your facial expressions in real-time to detect your current emotional state
+              <h4 className="text-xl font-semibold mb-2 text-black dark:text-white">Patients</h4>
+              <p className="text-gray-600 dark:text-gray-300">
+                AI chat &amp; voice sessions, emotion tracking, mental health assessments, appointment booking, session history, and progress dashboard
               </p>
             </div>
 
             <div className="text-center">
               <div className="bg-green-100 dark:bg-green-900 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 transition-colors duration-300">
-          <span className="text-2xl">💬</span>
+                <span className="text-2xl">🩺</span>
               </div>
-              <h4 className="text-xl font-semibold mb-2 text-black dark:text-white">2. Empathetic Response</h4>
-              <p className="text-black dark:text-gray-300">
-          The AI therapist generates personalized responses based on your emotions and conversation context
+              <h4 className="text-xl font-semibold mb-2 text-black dark:text-white">Therapists</h4>
+              <p className="text-gray-600 dark:text-gray-300">
+                Patient management, schedule &amp; availability control, appointment confirmations, session analytics, and professional dashboard
               </p>
             </div>
 
             <div className="text-center">
               <div className="bg-purple-100 dark:bg-purple-900 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 transition-colors duration-300">
-          <span className="text-2xl">🎯</span>
+                <span className="text-2xl">🛡️</span>
               </div>
-              <h4 className="text-xl font-semibold mb-2 text-black dark:text-white">3. Track Progress</h4>
-              <p className="text-black dark:text-gray-300">
-          Monitor your emotional patterns and therapy progress with detailed analytics and insights
+              <h4 className="text-xl font-semibold mb-2 text-black dark:text-white">Admins</h4>
+              <p className="text-gray-600 dark:text-gray-300">
+                Platform analytics, therapist verification &amp; approval, user management with ban controls, and system-wide monitoring
               </p>
             </div>
           </div>
         </div>
 
+        {/* More Features */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
+            <div className="text-4xl mb-4">🫂</div>
+            <h3 className="text-xl font-semibold text-black dark:text-white mb-2">Anonymous Peer Support</h3>
+            <p className="text-gray-600 dark:text-gray-300">
+              Post anonymously across categories like Academic Stress, Social &amp; Emotional, Career Anxiety, and more. Reply, like, and search — no account required.
+            </p>
+          </div>
+
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
+            <div className="text-4xl mb-4">🔐</div>
+            <h3 className="text-xl font-semibold text-black dark:text-white mb-2">Secure Authentication</h3>
+            <p className="text-gray-600 dark:text-gray-300">
+              Email/password &amp; Google OAuth sign-in, role-based access (Patient, Therapist, Admin), OTP password recovery, session management, and incognito detection.
+            </p>
+          </div>
+
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
+            <div className="text-4xl mb-4">🌙</div>
+            <h3 className="text-xl font-semibold text-black dark:text-white mb-2">Dark Mode &amp; Responsive UI</h3>
+            <p className="text-gray-600 dark:text-gray-300">
+              Full dark/light theme toggle, mobile-responsive navigation, and a polished component library built with shadcn/ui and Radix UI.
+            </p>
+          </div>
+
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
+            <div className="text-4xl mb-4">💬</div>
+            <h3 className="text-xl font-semibold text-black dark:text-white mb-2">Chat History &amp; Sessions</h3>
+            <p className="text-gray-600 dark:text-gray-300">
+              Multiple chat sessions with create, rename, and delete. Full message persistence, session timer, and automatic cleanup of empty sessions.
+            </p>
+          </div>
+        </div>
+
         {/* Technology Stack */}
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-8 mb-16 border dark:border-gray-700 transition-colors duration-300">
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 mb-16 border dark:border-gray-700 transition-colors duration-300">
           <h3 className="text-3xl text-gray-700 dark:text-gray-200 font-bold text-center mb-8">Powered by Advanced Technology</h3>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 text-center">
-            <div className="bg-white dark:bg-gray-700 p-4 rounded-lg shadow transition-colors duration-300">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 text-center">
+            <div className="bg-white/90 dark:bg-gray-700/90 p-4 rounded-lg shadow transition-colors duration-300">
               <div className="text-2xl mb-2">⚛️</div>
-              <p className="font-medium text-black dark:text-white">Next.js</p>
+              <p className="font-medium text-sm text-black dark:text-white">Next.js</p>
             </div>
-            <div className="bg-white dark:bg-gray-700 p-4 rounded-lg shadow transition-colors duration-300">
+            <div className="bg-white/90 dark:bg-gray-700/90 p-4 rounded-lg shadow transition-colors duration-300">
               <div className="text-2xl mb-2">🧠</div>
-              <p className="font-medium text-black dark:text-white">Gemini 2.5</p>
+              <p className="font-medium text-sm text-black dark:text-white">Groq LLaMA</p>
             </div>
-            <div className="bg-white dark:bg-gray-700 p-4 rounded-lg shadow transition-colors duration-300">
-              <div className="text-2xl mb-2">👁️</div>
-              <p className="font-medium text-black dark:text-white">OpenCV</p>
+            <div className="bg-white/90 dark:bg-gray-700/90 p-4 rounded-lg shadow transition-colors duration-300">
+              <div className="text-2xl mb-2">🔍</div>
+              <p className="font-medium text-sm text-black dark:text-white">Pinecone RAG</p>
             </div>
-            <div className="bg-white dark:bg-gray-700 p-4 rounded-lg shadow transition-colors duration-300">
-              <div className="text-2xl mb-2">🎙️</div>
-              <p className="font-medium text-black dark:text-white">ElevenLabs</p>
+            
+            
+            
+            <div className="bg-white/90 dark:bg-gray-700/90 p-4 rounded-lg shadow transition-colors duration-300">
+              <div className="text-2xl mb-2">⚡</div>
+              <p className="font-medium text-sm text-black dark:text-white">FastAPI</p>
             </div>
-            <div className="bg-white dark:bg-gray-700 p-4 rounded-lg shadow transition-colors duration-300">
-              <div className="text-2xl mb-2">🎭</div>
-              <p className="font-medium text-black dark:text-white">D-ID Avatar</p>
-            </div>
-            <div className="bg-white dark:bg-gray-700 p-4 rounded-lg shadow transition-colors duration-300">
+            <div className="bg-white/90 dark:bg-gray-700/90 p-4 rounded-lg shadow transition-colors duration-300">
               <div className="text-2xl mb-2">🗄️</div>
-              <p className="font-medium text-black dark:text-white">MongoDB</p>
+              <p className="font-medium text-sm text-black dark:text-white">MySQL + Prisma</p>
             </div>
           </div>
         </div>
@@ -270,7 +344,7 @@ export default function Home() {
         <div className="text-center">
           <h3 className="text-3xl font-bold mb-4 text-gray-900 dark:text-white">Ready to Start Your Journey?</h3>
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
-            Experience the future of mental health support with AI-powered therapy
+            Join MindBridge and take the first step toward better mental health
           </p>
           <Link
             href={session ? (session.user?.role === 'patient' ? "/patient/session" : "/therapist/dashboard") : "/auth/register"}
@@ -285,7 +359,7 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-900 dark:bg-gray-950 text-white py-8 mt-16 transition-colors duration-300">
+      <footer className="bg-gray-900/90 dark:bg-gray-950/90 backdrop-blur-sm text-white py-8 mt-16 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <div className="flex items-center justify-center space-x-3 mb-4">
             <div className="text-2xl">🧠</div>
@@ -299,6 +373,7 @@ export default function Home() {
           </p>
         </div>
       </footer>
+      </div>{/* End content wrapper */}
     </div>
   );
 }
