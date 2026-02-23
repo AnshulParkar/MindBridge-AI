@@ -108,7 +108,7 @@ export default function SignInPage() {
               <div className="text-3xl"><Image className="h-12 w-12" src="/logo.png" alt="Logo" width={48} height={48} /></div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">MindBridge</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Emotion-Aware AI Therapist</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">AI Therapy Session</p>
               </div>
             </Link>
             <ThemeToggle />
