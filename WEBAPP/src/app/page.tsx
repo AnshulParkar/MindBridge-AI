@@ -212,6 +212,14 @@ export default function Home() {
             </p>
           </div> */}
 
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
+            <div className="text-4xl mb-4">📊</div>
+            <h3 className="text-xl font-semibold text-black dark:text-white mb-2">Mental Health Analytics</h3>
+            <p className="text-gray-600 dark:text-gray-300">
+              5-level severity scoring, keyword analysis across 7 categories, risk flag detection, trend tracking, and PHQ-9/GAD-7 assessments
+            </p>
+          </div>
+
           <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
             <div className="text-4xl mb-4">🤖</div>
             <h3 className="text-xl text-black dark:text-white font-semibold mb-2">AI Therapist</h3>
@@ -220,13 +228,6 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
-            <div className="text-4xl mb-4">📊</div>
-            <h3 className="text-xl font-semibold text-black dark:text-white mb-2">Mental Health Analytics</h3>
-            <p className="text-gray-600 dark:text-gray-300">
-              5-level severity scoring, keyword analysis across 7 categories, risk flag detection, trend tracking, and PHQ-9/GAD-7 assessments
-            </p>
-          </div>
 
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
             <div className="text-4xl mb-4">📅</div>
