@@ -97,23 +97,49 @@ const handler = NextAuth({
 		}),
 	],
 	callbacks: {
-		async signIn({ user, account }) {
+		async signIn({ user, account, profile }) {
 			// For Google sign-in, handle user creation/linking
 			if (account?.provider === "google") {
 				const existingUser = await prisma.user.findUnique({
 					where: { email: user.email! },
+					include: { accounts: true },
 				});
 
 				if (existingUser) {
 					// Check if banned
 					if (existingUser.isBanned) return false;
+
+					// If user exists but has no linked Google account, link it now
+					const hasGoogleAccount = existingUser.accounts.some(
+						(acc) => acc.provider === "google"
+					);
+					if (!hasGoogleAccount) {
+						await prisma.account.create({
+							data: {
+								userId: existingUser.id,
+								type: account.type,
+								provider: account.provider,
+								providerAccountId: account.providerAccountId,
+								access_token: account.access_token as string | undefined,
+								refresh_token: account.refresh_token as string | undefined,
+								expires_at: account.expires_at as number | undefined,
+								token_type: account.token_type as string | undefined,
+								scope: account.scope as string | undefined,
+								id_token: account.id_token as string | undefined,
+								session_state: account.session_state as string | undefined,
+							},
+						});
+					}
+
+					// Point NextAuth at the existing user so the adapter doesn't create a duplicate
+					user.id = existingUser.id;
 					return true;
 				}
 
 				// Create new user with Google - default to patient role
 				// They'll select role during profile completion
 				const randomPassword = await hash(Math.random().toString(36), 10);
-				await prisma.user.create({
+				const newUser = await prisma.user.create({
 					data: {
 						email: user.email!,
 						name: user.name || null,
@@ -123,6 +149,25 @@ const handler = NextAuth({
 						isProfileComplete: false,
 					},
 				});
+
+				// Link the Google account to the newly created user
+				await prisma.account.create({
+					data: {
+						userId: newUser.id,
+						type: account.type,
+						provider: account.provider,
+						providerAccountId: account.providerAccountId,
+						access_token: account.access_token as string | undefined,
+						refresh_token: account.refresh_token as string | undefined,
+						expires_at: account.expires_at as number | undefined,
+						token_type: account.token_type as string | undefined,
+						scope: account.scope as string | undefined,
+						id_token: account.id_token as string | undefined,
+						session_state: account.session_state as string | undefined,
+					},
+				});
+
+				user.id = newUser.id;
 			}
 			return true;
 		},
