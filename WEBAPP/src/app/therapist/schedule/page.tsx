@@ -3,7 +3,8 @@
 import type React from "react"
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { useSession } from "next-auth/react"
+import Image from "next/image"
+import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -33,7 +34,6 @@ import {
   UserCheck,
   AlertCircle,
   CheckCircle2,
-  ArrowLeft,
   Filter,
   Search,
   CalendarDays,
@@ -43,7 +43,7 @@ import {
   RefreshCw,
 } from "lucide-react"
 import ThemeToggle from "../../../components/ThemeToggle"
-import MobileNavigation from "../../../components/MobileNavigation"
+import TherapistMobileMenu from "../../../components/TherapistMobileMenu"
 
 interface AppointmentData {
   id: string
@@ -376,113 +376,131 @@ const ScheduleManagement: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading schedule...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading schedule...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen min-w-full bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
       {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/therapist/dashboard">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Dashboard
-                </Link>
-              </Button>
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center justify-center w-10 h-10 bg-primary rounded-lg">
-                  <CalendarIcon className="h-6 w-6 text-primary-foreground" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-foreground">Schedule Management</h1>
-                  <p className="text-muted-foreground">Manage appointments and availability</p>
-                </div>
+      <header className="bg-white dark:bg-gray-800 shadow-sm transition-colors duration-300 w-full">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
+            <div className="flex items-center space-x-3">
+              <Image className="h-12 w-12 flex-shrink-0" src="/logo.png" alt="MindBridge Logo" width={48} height={48} />
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white truncate">MindBridge</h1>
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Schedule Management</p>
               </div>
             </div>
-            <div className="flex items-center space-x-2 md:space-x-4">
+
+            {/* Desktop Navigation */}
+            <nav className="hidden md:flex items-center space-x-2 lg:space-x-4 flex-shrink-0">
               <ThemeToggle />
+              <Link
+                href="/therapist/dashboard"
+                className="px-2 lg:px-4 py-2 text-sm lg:text-base text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap"
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/peer-support"
+                className="px-2 lg:px-4 py-2 text-sm lg:text-base text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap"
+              >
+                Peer Support
+              </Link>
               <Button variant="outline" size="sm" onClick={() => { fetchAppointments(); fetchAvailability(); }}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
-              <MobileNavigation />
-            </div>
+              <button
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="px-2 lg:px-4 py-2 text-sm lg:text-base text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors border border-red-600 dark:border-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900 whitespace-nowrap"
+              >
+                Sign Out
+              </button>
+            </nav>
+
+            {/* Mobile Navigation */}
+            <TherapistMobileMenu currentPage="schedule" />
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs defaultValue="overview" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="appointments">All Appointments</TabsTrigger>
-            <TabsTrigger value="calendar">Calendar View</TabsTrigger>
-            <TabsTrigger value="availability">Availability</TabsTrigger>
-          </TabsList>
+          <div className="w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg p-2 sm:p-4 transition-colors duration-300 overflow-hidden">
+            <TabsList className="grid w-full grid-cols-4 bg-gray-100 dark:bg-gray-700 text-xs sm:text-sm">
+              <TabsTrigger value="overview" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white px-1 sm:px-3">Overview</TabsTrigger>
+              <TabsTrigger value="appointments" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white px-1 sm:px-3">All Appointments</TabsTrigger>
+              <TabsTrigger value="calendar" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white px-1 sm:px-3">Calendar View</TabsTrigger>
+              <TabsTrigger value="availability" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white px-1 sm:px-3">Availability</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* ===== OVERVIEW TAB ===== */}
           <TabsContent value="overview" className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Appointments</CardTitle>
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.totalAppointments}</div>
-                  <p className="text-xs text-muted-foreground">All scheduled appointments</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Today</CardTitle>
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.todayAppointments}</div>
-                  <p className="text-xs text-muted-foreground">Appointments today</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Pending</CardTitle>
-                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.pendingAppointments}</div>
-                  <p className="text-xs text-muted-foreground">Awaiting confirmation</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Confirmed</CardTitle>
-                  <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.confirmedAppointments}</div>
-                  <p className="text-xs text-muted-foreground">Ready to go</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Active Slots</CardTitle>
-                  <Timer className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.totalSlots}</div>
-                  <p className="text-xs text-muted-foreground">Available time slots</p>
-                </CardContent>
-              </Card>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
+              <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <div className="bg-blue-100 dark:bg-blue-900 w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <CalendarDays className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{stats.totalAppointments}</div>
+                </div>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1">Total Appointments</h3>
+                <p className="text-gray-600 dark:text-gray-300 text-xs sm:text-sm">All scheduled appointments</p>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <div className="bg-green-100 dark:bg-green-900 w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{stats.todayAppointments}</div>
+                </div>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1">Today</h3>
+                <p className="text-gray-600 dark:text-gray-300 text-xs sm:text-sm">Appointments today</p>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <div className="bg-yellow-100 dark:bg-yellow-900 w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-600 dark:text-yellow-400" />
+                  </div>
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{stats.pendingAppointments}</div>
+                </div>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1">Pending</h3>
+                <p className="text-gray-600 dark:text-gray-300 text-xs sm:text-sm">Awaiting confirmation</p>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <div className="bg-emerald-100 dark:bg-emerald-900 w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{stats.confirmedAppointments}</div>
+                </div>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1">Confirmed</h3>
+                <p className="text-gray-600 dark:text-gray-300 text-xs sm:text-sm">Ready to go</p>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <div className="bg-purple-100 dark:bg-purple-900 w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Timer className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{stats.totalSlots}</div>
+                </div>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1">Active Slots</h3>
+                <p className="text-gray-600 dark:text-gray-300 text-xs sm:text-sm">Available time slots</p>
+              </div>
             </div>
 
             {/* Today's Schedule */}
