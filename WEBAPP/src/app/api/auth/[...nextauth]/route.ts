@@ -188,6 +188,7 @@ const handler = NextAuth({
 				if (dbUser) {
 					token.role = dbUser.role;
 					token.id = dbUser.id;
+					token.name = dbUser.name || token.name;
 					token.isProfileComplete = dbUser.isProfileComplete;
 				}
 			}
