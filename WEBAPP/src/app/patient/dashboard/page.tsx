@@ -103,6 +103,8 @@ const Dashboard: React.FC = () => {
     weeklyGoal: 5,
     streakDays: 0,
     improvementScore: 0,
+    memberDays: 0,
+    activeDays: 0,
   })
 
   // Analytics state
@@ -168,7 +170,7 @@ const Dashboard: React.FC = () => {
             (s: any) => new Date(s.startTime) > oneWeekAgo && s.status === "completed"
           ).length
 
-          // Calculate actual streak — consecutive days with completed sessions ending today
+          // Calculate actual streak — consecutive days with completed sessions ending today or yesterday
           let streakDays = 0
           if (completed.length > 0) {
             const sessionDates = completed
@@ -180,18 +182,41 @@ const Dashboard: React.FC = () => {
             today.setHours(0, 0, 0, 0)
             const dayMs = 24 * 60 * 60 * 1000
 
-            for (let i = 0; i < sessionDates.length; i++) {
-              const d = new Date(sessionDates[i])
-              d.setHours(0, 0, 0, 0)
-              const expectedDate = new Date(today.getTime() - i * dayMs)
-              expectedDate.setHours(0, 0, 0, 0)
-              if (d.getTime() === expectedDate.getTime()) {
-                streakDays++
-              } else {
-                break
+            // Check if the most recent session is today or yesterday
+            const mostRecent = new Date(sessionDates[0])
+            mostRecent.setHours(0, 0, 0, 0)
+            const diffDays = Math.round((today.getTime() - mostRecent.getTime()) / dayMs)
+
+            // Only count streak if most recent session was today or yesterday
+            if (diffDays <= 1) {
+              const startDate = mostRecent  // Start counting from the most recent session date
+              for (let i = 0; i < sessionDates.length; i++) {
+                const d = new Date(sessionDates[i])
+                d.setHours(0, 0, 0, 0)
+                const expectedDate = new Date(startDate.getTime() - i * dayMs)
+                expectedDate.setHours(0, 0, 0, 0)
+                if (d.getTime() === expectedDate.getTime()) {
+                  streakDays++
+                } else {
+                  break
+                }
               }
             }
           }
+
+          // Calculate days since first session (membership days)
+          let memberDays = 0
+          if (completed.length > 0) {
+            const firstSession = completed
+              .map((s: any) => new Date(s.startTime))
+              .sort((a: Date, b: Date) => a.getTime() - b.getTime())[0]
+            memberDays = Math.max(1, Math.ceil((Date.now() - firstSession.getTime()) / (24 * 60 * 60 * 1000)))
+          }
+
+          // Calculate unique active days (days where at least one session happened)
+          const activeDays = completed.length > 0
+            ? new Set(completed.map((s: any) => new Date(s.startTime).toDateString())).size
+            : 0
 
           setStats(prev => ({
             ...prev,
@@ -201,6 +226,8 @@ const Dashboard: React.FC = () => {
             weeklyProgress,
             weeklyGoal: 5,
             streakDays,
+            memberDays,
+            activeDays,
           }))
         }
 
@@ -249,7 +276,9 @@ const Dashboard: React.FC = () => {
   }, [session])
 
   const formatDuration = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60)
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    if (hours > 0) return `${hours}h ${minutes}m`
     return `${minutes} min`
   }
 
@@ -409,7 +438,7 @@ const Dashboard: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="text-center mb-8">
           <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            Welcome back, <span className="text-blue-600 dark:text-blue-400">{session?.user?.email?.split("@")[0]}</span>
+            Welcome back, <span className="text-blue-600 dark:text-blue-400">{session?.user?.name || session?.user?.email?.split("@")[0]}</span>
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-300">
             Continue your mental health journey with personalized AI therapy
@@ -461,7 +490,13 @@ const Dashboard: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.streakDays} {stats.streakDays === 1 ? 'day' : 'days'}</div>
-                  <p className="text-xs text-gray-600 dark:text-gray-300">{stats.streakDays > 0 ? 'Consecutive therapy days' : 'Start a session to build your streak!'}</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-300">
+                    {stats.streakDays > 0 
+                      ? 'Consecutive therapy days' 
+                      : stats.activeDays > 0 
+                        ? `${stats.activeDays} active day${stats.activeDays === 1 ? '' : 's'} over ${stats.memberDays} day${stats.memberDays === 1 ? '' : 's'}`
+                        : 'Start a session to build your streak!'}
+                  </p>
                 </CardContent>
               </Card>
 
@@ -723,6 +758,12 @@ const Dashboard: React.FC = () => {
                   <Link href="/patient/appointments">
                     <Button variant="outline" className="w-full justify-between bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white hover:bg-green-50 dark:hover:bg-green-900/20 mt-3">
                       <span className="flex items-center"><Calendar className="mr-2 h-4 w-4 text-green-500" />Book Appointment</span>
+                      <ArrowRight className="h-4 w-4 text-gray-400" />
+                    </Button>
+                  </Link>
+                  <Link href="/patient/analytics">
+                    <Button variant="outline" className="w-full justify-between bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white hover:bg-indigo-50 dark:hover:bg-indigo-900/20 mt-3">
+                      <span className="flex items-center"><Activity className="mr-2 h-4 w-4 text-indigo-500" />Advanced NLP Analytics</span>
                       <ArrowRight className="h-4 w-4 text-gray-400" />
                     </Button>
                   </Link>
@@ -1043,6 +1084,27 @@ const Dashboard: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="progress" className="space-y-6">
+            {/* Link to Advanced NLP Analytics */}
+            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-2 border-indigo-200 dark:border-indigo-700 rounded-xl p-6 shadow-lg">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center">
+                    <Activity className="mr-2 h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                    Advanced NLP Analytics Dashboard
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    Sentiment analysis, emotion classification, n-gram detection, lexical diversity and interactive charts
+                  </p>
+                </div>
+                <Link href="/patient/analytics">
+                  <Button className="bg-indigo-600 hover:bg-indigo-700 text-white px-6">
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    Open Advanced Analytics
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
             <MentalHealthAnalyticsDashboard />
           </TabsContent>
 
