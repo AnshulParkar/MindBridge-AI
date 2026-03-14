@@ -415,6 +415,12 @@ const Dashboard: React.FC = () => {
             <nav className="hidden md:flex items-center space-x-2 lg:space-x-4 flex-shrink-0">
               <ThemeToggle />
               <Link
+                href="/therapist/patient-analytics"
+                className="px-2 lg:px-4 py-2 text-sm lg:text-base text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors whitespace-nowrap"
+              >
+                Patient Analytics
+              </Link>
+              <Link
                 href="/therapist/schedule"
                 className="px-2 lg:px-4 py-2 text-sm lg:text-base text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 transition-colors whitespace-nowrap"
               >
@@ -593,9 +599,12 @@ const Dashboard: React.FC = () => {
                   </div>
                   <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-2">Patient Analytics</h3>
                   <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mb-4">View detailed patient progress reports</p>
-                  <button className="w-full px-4 sm:px-6 py-2 bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 border-2 border-blue-600 dark:border-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm sm:text-base">
+                  <Link
+                    href="/therapist/patient-analytics"
+                    className="block w-full px-4 sm:px-6 py-2 bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 border-2 border-blue-600 dark:border-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm sm:text-base text-center"
+                  >
                     View Analytics
-                  </button>
+                  </Link>
                 </div>
               </div>
 
@@ -843,6 +852,56 @@ const Dashboard: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">
+            {/* Advanced NLP Analytics Banner */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg p-6 text-white">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-bold mb-1">Advanced NLP Patient Analytics</h3>
+                  <p className="text-blue-100 text-sm">
+                    Sentiment analysis, emotion detection, n-gram patterns, lexical diversity, and more — powered by NLP.
+                  </p>
+                </div>
+                <Link
+                  href="/therapist/patient-analytics"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors whitespace-nowrap"
+                >
+                  <BarChart3 className="h-5 w-5" />
+                  Open Patient Analytics
+                </Link>
+              </div>
+            </div>
+
+            {/* Patient Quick Select */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300 p-6">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Quick Patient Select</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">Click a patient to view their detailed NLP mental health analytics</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {patients.length > 0 ? patients.map((patient) => (
+                  <Link
+                    key={patient.id}
+                    href={`/therapist/patient-analytics`}
+                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors group"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                        {patient.name.split(" ").map((n: string) => n[0]).join("")}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">{patient.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{patient.email}</p>
+                    </div>
+                    <span className="text-lg">{getEmotionEmoji(patient.dominantEmotion)}</span>
+                  </Link>
+                )) : (
+                  <div className="col-span-full text-center py-8 text-gray-500 dark:text-gray-400">
+                    <p>No patients linked yet. Patient cards will appear here once you have therapy sessions.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Session Effectiveness placeholder */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border dark:border-gray-700 transition-colors duration-300">
                 <div className="text-center">
@@ -850,10 +909,13 @@ const Dashboard: React.FC = () => {
                     <BarChart3 className="h-8 w-8 text-blue-600 dark:text-blue-400" />
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Patient Progress Analytics</h3>
-                  <p className="text-gray-600 dark:text-gray-300 mb-6">Track overall patient improvement trends</p>
-                  <div className="text-center py-8 text-gray-600 dark:text-gray-400">
-                    <p>Detailed analytics coming soon</p>
-                  </div>
+                  <p className="text-gray-600 dark:text-gray-300 mb-4">Track overall patient improvement trends and sentiment</p>
+                  <Link
+                    href="/therapist/patient-analytics"
+                    className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  >
+                    View Full Analytics
+                  </Link>
                 </div>
               </div>
 
@@ -864,7 +926,7 @@ const Dashboard: React.FC = () => {
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Session Effectiveness</h3>
                   <p className="text-gray-600 dark:text-gray-300 mb-6">Measure therapy session outcomes and success rates</p>
-                  <div className="text-center py-8 text-gray-600 dark:text-gray-400">
+                  <div className="text-center py-4 text-gray-600 dark:text-gray-400">
                     <p>Effectiveness metrics coming soon</p>
                   </div>
                 </div>
