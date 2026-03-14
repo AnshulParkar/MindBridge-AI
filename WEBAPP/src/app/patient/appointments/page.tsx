@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, useCallback, Suspense } from "react"
+import { useSession, signOut } from "next-auth/react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
 import {
   Calendar,
   Clock,
@@ -16,7 +17,15 @@ import {
   AlertTriangle,
   CalendarDays,
   Timer,
+  Home,
+  Play,
+  Video,
+  MessageSquare,
+  LogOut,
+  Menu,
+  X,
 } from "lucide-react"
+import ThemeToggle from "../../../components/ThemeToggle"
 
 interface Therapist {
   id: string
@@ -49,9 +58,11 @@ interface Appointment {
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
-export default function PatientAppointments() {
+function PatientAppointmentsContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [therapists, setTherapists] = useState<Therapist[]>([])
   const [availableSlots, setAvailableSlots] = useState<AvailabilitySlot[]>([])
@@ -74,6 +85,45 @@ export default function PatientAppointments() {
 
   // Polling interval for real-time updates (every 30 seconds)
   const POLL_INTERVAL = 30000
+
+  // Handle payment success/cancel from Stripe redirect
+  useEffect(() => {
+    const payment = searchParams.get("payment")
+    const stripeSessionId = searchParams.get("session_id")
+
+    if (payment === "success" && stripeSessionId) {
+      // Verify payment and confirm appointment
+      const verifyPayment = async () => {
+        try {
+          const res = await fetch("/api/checkout/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId: stripeSessionId }),
+          })
+          if (res.ok) {
+            setBookingSuccess("Payment successful! Your appointment has been confirmed.")
+            // Refresh appointments list
+            if (session?.user?.id) {
+              const aptRes = await fetch(`/api/therapy/appointments?patientId=${session.user.id}`)
+              if (aptRes.ok) {
+                setAppointments(await aptRes.json())
+              }
+            }
+          } else {
+            setBookingSuccess("Payment received! Your appointment is being confirmed.")
+          }
+        } catch {
+          setBookingSuccess("Payment received! Your appointment will be confirmed shortly.")
+        }
+      }
+      verifyPayment()
+      // Clean URL params
+      router.replace("/patient/appointments")
+    } else if (payment === "cancelled") {
+      setBookingError("Payment was cancelled. You can try booking again.")
+      router.replace("/patient/appointments")
+    }
+  }, [searchParams, session?.user?.id, router])
 
   useEffect(() => {
     if (status === "loading") return
@@ -168,13 +218,16 @@ export default function PatientAppointments() {
     setBookingSuccess(null)
 
     const scheduledTime = `${bookingData.selectedDate}T${bookingData.selectedSlot.startTime}:00`
+    const therapistName = therapists.find((t) => t.id === bookingData.therapistId)?.name || "Therapist"
 
     try {
-      const res = await fetch("/api/therapy/appointments", {
+      // Create Stripe Checkout Session
+      const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           therapistId: bookingData.therapistId,
+          therapistName,
           patientId: session.user.id,
           scheduledTime,
           duration: bookingData.duration,
@@ -185,26 +238,19 @@ export default function PatientAppointments() {
       })
 
       if (res.ok) {
-        const newAppointment = await res.json()
-        setAppointments((prev) => [...prev, newAppointment])
-        setBookingSuccess("Appointment booked successfully! You will receive a confirmation email.")
-        setShowBooking(false)
-        setBookingStep(1)
-        setBookingData({
-          therapistId: "",
-          selectedDate: "",
-          selectedSlot: null,
-          duration: 3600,
-          type: "followup",
-          notes: "",
-        })
-        fetchAvailableSlots()
+        const { url } = await res.json()
+        if (url) {
+          // Redirect to Stripe Checkout
+          window.location.href = url
+        } else {
+          setBookingError("Failed to create payment session")
+        }
       } else {
         const errorData = await res.json()
-        setBookingError(errorData.error || "Failed to book appointment")
+        setBookingError(errorData.error || "Failed to initiate payment")
       }
     } catch (error) {
-      console.error("Error booking appointment:", error)
+      console.error("Error initiating payment:", error)
       setBookingError("Network error. Please try again.")
     } finally {
       setBookingInProgress(false)
@@ -287,9 +333,136 @@ export default function PatientAppointments() {
     .sort((a, b) => new Date(b.scheduledTime).getTime() - new Date(a.scheduledTime).getTime())
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
+      {/* Header - matches main project theme */}
+      <header className="bg-white dark:bg-gray-800 shadow-sm transition-colors duration-300">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="text-3xl">
+                <Image className="h-12 w-12" src="/logo.png" alt="Logo" width={48} height={48} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">MindBridge</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-300">Appointments</p>
+              </div>
+            </div>
+
+            <nav className="flex items-center space-x-4">
+              {/* Desktop Navigation */}
+              <div className="hidden md:flex items-center space-x-4">
+                <Link
+                  href="/"
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center"
+                >
+                  <Home className="mr-2 h-4 w-4" />
+                  Home
+                </Link>
+                <Link
+                  href="/patient/dashboard"
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center"
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  href="/patient/session"
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors flex items-center"
+                >
+                  <Play className="mr-2 h-4 w-4" />
+                  Start Session
+                </Link>
+                <Link
+                  href="/patient/virtual-session"
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 transition-colors flex items-center"
+                >
+                  <Video className="mr-2 h-4 w-4" />
+                  Virtual Session
+                </Link>
+                <Link
+                  href="/peer-support"
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center"
+                >
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Peer Support Forums
+                </Link>
+              </div>
+
+              <ThemeToggle />
+
+              {/* Mobile Menu Button */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
+
+              <button
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="px-4 py-2 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors border border-red-600 dark:border-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900 hidden md:flex items-center"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+              </button>
+            </nav>
+          </div>
+
+          {/* Mobile Navigation */}
+          {mobileMenuOpen && (
+            <div className="md:hidden mt-4 py-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+              <Link
+                href="/"
+                className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <Home className="inline mr-2 h-4 w-4" />
+                Home
+              </Link>
+              <Link
+                href="/patient/dashboard"
+                className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/patient/session"
+                className="block px-4 py-2 text-blue-600 dark:text-blue-400 font-medium"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <Play className="inline mr-2 h-4 w-4" />
+                Start Session
+              </Link>
+              <Link
+                href="/patient/virtual-session"
+                className="block px-4 py-2 text-purple-600 dark:text-purple-400 font-medium"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <Video className="inline mr-2 h-4 w-4" />
+                Virtual Session
+              </Link>
+              <Link
+                href="/peer-support"
+                className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <MessageSquare className="inline mr-2 h-4 w-4" />
+                Peer Support Forums
+              </Link>
+              <button
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="block w-full text-left px-4 py-2 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
+              >
+                <LogOut className="inline mr-2 h-4 w-4" />
+                Sign Out
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
+
+      <div className="max-w-6xl mx-auto p-4 md:p-8">
+        {/* Page Title */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
           <div className="flex items-center gap-4">
             <Link
@@ -352,7 +525,7 @@ export default function PatientAppointments() {
                         bookingStep >= step ? "text-blue-600 dark:text-blue-400" : "text-gray-400"
                       }`}
                     >
-                      {step === 1 ? "Select Therapist" : step === 2 ? "Pick Time Slot" : "Confirm"}
+                      {step === 1 ? "Select Therapist" : step === 2 ? "Pick Time Slot" : "Confirm & Pay"}
                     </span>
                     {step < 3 && (
                       <div
@@ -560,10 +733,10 @@ export default function PatientAppointments() {
               </div>
             )}
 
-            {/* Step 3: Confirm & Book */}
+            {/* Step 3: Confirm & Pay */}
             {bookingStep === 3 && (
               <div className="space-y-6">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Confirm Your Appointment</h2>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Confirm & Pay</h2>
 
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -602,6 +775,12 @@ export default function PatientAppointments() {
                         {bookingData.type === "followup" ? "Follow-up" : bookingData.type}
                       </p>
                     </div>
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Amount</p>
+                      <p className="font-bold text-2xl text-green-700 dark:text-green-400">
+                        ${bookingData.duration === 1800 ? "25.00" : bookingData.duration === 3600 ? "50.00" : bookingData.duration === 5400 ? "70.00" : "90.00"}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -616,6 +795,20 @@ export default function PatientAppointments() {
                     rows={3}
                     placeholder="Any specific topics or concerns you'd like to discuss..."
                   />
+                </div>
+
+                {/* Payment info card */}
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 flex items-start gap-3">
+                  <svg className="h-5 w-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                    <line x1="1" y1="10" x2="23" y2="10" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-indigo-800 dark:text-indigo-200">Secure Payment via Stripe</p>
+                    <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">
+                      You&apos;ll be redirected to Stripe&apos;s secure checkout to complete payment. Your appointment will be confirmed automatically after successful payment.
+                    </p>
+                  </div>
                 </div>
 
                 {bookingError && (
@@ -638,17 +831,20 @@ export default function PatientAppointments() {
                   <button
                     disabled={bookingInProgress}
                     onClick={handleBookAppointment}
-                    className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
+                    className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg hover:shadow-xl"
                   >
                     {bookingInProgress ? (
                       <>
                         <RefreshCw className="h-4 w-4 animate-spin" />
-                        Booking...
+                        Redirecting to Payment...
                       </>
                     ) : (
                       <>
-                        <CheckCircle className="h-4 w-4" />
-                        Confirm Booking
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                          <line x1="1" y1="10" x2="23" y2="10" />
+                        </svg>
+                        Pay & Confirm Booking
                       </>
                     )}
                   </button>
@@ -790,5 +986,20 @@ export default function PatientAppointments() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function PatientAppointments() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading appointments...</p>
+        </div>
+      </div>
+    }>
+      <PatientAppointmentsContent />
+    </Suspense>
   )
 }
