@@ -2,8 +2,9 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/db"
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const session = await getServerSession()
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -21,7 +22,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const { isActive, startTime, endTime, isRecurring } = data
 
     const slot = await prisma.therapistAvailability.update({
-      where: { id: params.id, therapistId: user.id },
+      where: { id, therapistId: user.id },
       data: {
         ...(isActive !== undefined ? { isActive } : {}),
         ...(startTime ? { startTime } : {}),
@@ -37,8 +38,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const session = await getServerSession()
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -55,7 +57,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     // Check if slot has future appointments
     const hasAppointments = await prisma.appointment.findFirst({
       where: {
-        slotId: params.id,
+        slotId: id,
         scheduledTime: { gte: new Date() },
         status: { notIn: ["cancelled", "completed"] },
       },
@@ -64,14 +66,14 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     if (hasAppointments) {
       // Soft delete if appointments exist
       await prisma.therapistAvailability.update({
-        where: { id: params.id, therapistId: user.id },
+        where: { id, therapistId: user.id },
         data: { isActive: false },
       })
       return NextResponse.json({ message: "Slot deactivated (has future appointments)" })
     }
 
     await prisma.therapistAvailability.delete({
-      where: { id: params.id, therapistId: user.id },
+      where: { id, therapistId: user.id },
     })
 
     return NextResponse.json({ message: "Slot deleted" })
