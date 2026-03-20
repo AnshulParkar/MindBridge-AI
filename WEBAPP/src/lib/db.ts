@@ -1,4 +1,4 @@
-// MySQL Database Connection using Prisma
+// Database connection using Prisma (Neon/PostgreSQL compatible)
 import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };

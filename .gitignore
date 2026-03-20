@@ -4,7 +4,8 @@ venv/
 env/
 ENV/
 venv*/
-
+.env
+/.env
 # Python caches / build artifacts
 __pycache__/
 *.py[cod]
@@ -23,5 +24,4 @@ dist/
 # Optional: environment files
 .env
 .env.local
-WEBAPP/.env
 WEBAPP/.env
