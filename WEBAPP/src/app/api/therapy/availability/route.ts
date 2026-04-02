@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/db"
+import { authOptions } from "@/lib/auth"
 
 // GET - Fetch availability slots for a therapist
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -96,7 +97,7 @@ export async function GET(req: Request) {
 // POST - Create availability slots (therapist only)
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -182,7 +183,7 @@ export async function POST(req: Request) {
 // DELETE - Remove availability slots
 export async function DELETE(req: Request) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
