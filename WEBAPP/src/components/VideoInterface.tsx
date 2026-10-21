@@ -179,23 +179,20 @@ const VideoInterface: React.FC<VideoInterfaceProps> = ({
         <div className="mt-4 p-4 bg-gray-50 rounded-lg w-full max-w-2xl">
           <h3 className="text-lg font-semibold mb-3">Current Emotion Analysis</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {Object.entries(currentEmotion.emotions).map(([emotion, confidence]) => (
-              <div
-                key={emotion}
-                className="bg-white p-3 rounded-lg border flex flex-col items-center"
-              >
-                <span className="capitalize font-medium text-sm">{emotion}</span>
-                <span className="text-xs text-gray-600 mt-1">
-                  {formatConfidence(confidence)}
-                </span>
-                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div
-                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${confidence * 100}%` }}
-                  />
-                </div>
+            <div className="bg-white p-3 rounded-lg border flex flex-col items-center">
+              <span className="capitalize font-medium text-sm">
+                {currentEmotion.emotion}
+              </span>
+              <span className="text-xs text-gray-600 mt-1">
+                {formatConfidence(currentEmotion.confidence)}
+              </span>
+              <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                <div
+                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${currentEmotion.confidence * 100}%` }}
+                />
               </div>
-            ))}
+            </div>
           </div>
         </div>
       )}

@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { therapyApi, API_CONFIG } from '../lib/api';
+import { useState, useCallback } from 'react';
+import { therapyApi } from '../lib/api';
 
 interface ChatMessage {
   id: string;
@@ -83,10 +83,8 @@ export const useChat = (options: UseChatOptions = {}) => {
       if (enableTTS) {
         try {
           const ttsResponse = await therapyApi.generateSpeech(response.response);
-          if (ttsResponse.status === 'success') {
-            therapistMessage.audioUrl = ttsResponse.audio_url.startsWith('/') 
-              ? `${API_CONFIG.AI_BACKEND_URL}${ttsResponse.audio_url}`
-              : ttsResponse.audio_url;
+          if (ttsResponse.status === 'success' && ttsResponse.audio_url) {
+            therapistMessage.audioUrl = ttsResponse.audio_url;
           }
         } catch (ttsError) {
           console.warn('TTS generation failed:', ttsError);

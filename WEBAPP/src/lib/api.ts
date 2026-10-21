@@ -1,6 +1,5 @@
 // API configuration and utilities
 export const API_CONFIG = {
-  AI_BACKEND_URL: process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001',
   ML_BACKEND_URL: process.env.NEXT_PUBLIC_ML_BACKEND_URL || 'http://localhost:8002',
 } as const;
 
@@ -47,7 +46,8 @@ class ApiClient {
 }
 
 // API clients
-export const aiApi = new ApiClient(API_CONFIG.AI_BACKEND_URL);
+// AI endpoints are served by Next.js routes in this same web app.
+export const aiApi = new ApiClient('');
 export const mlApi = new ApiClient(API_CONFIG.ML_BACKEND_URL);
 
 // Emotion detection API
@@ -75,25 +75,25 @@ export const emotionApi = {
 // AI therapy API
 export const therapyApi = {
   chat: async (message: string, emotion: string, sessionId?: string) => {
-    // Note: sessionId parameter is kept for compatibility but not used
+    // sessionId is passed through for future context support.
     return aiApi.post<{
       response: string;
       status: string;
-    }>('/chat', { message, emotion /* session_id: sessionId */ });
+    }>('/api/ai/chat', { message, emotion, session_id: sessionId });
   },
 
   generateSpeech: async (text: string, voice: string = 'default') => {
     return aiApi.post<{
-      audio_url: string;
+      audio_url?: string;
       status: string;
-    }>('/tts', { text, voice });
+    }>('/api/ai/tts', { text, voice });
   },
 
   generateAvatar: async (text: string, avatarId: string = 'default') => {
     return aiApi.post<{
       video_url: string;
       status: string;
-    }>('/avatar', { text, avatar_id: avatarId });
+    }>('/api/ai/avatar', { text, avatar_id: avatarId });
   },
 
   // Session endpoints commented out for now

@@ -1,11 +1,12 @@
-// Prisma schema for MySQL
+// Prisma schema for PostgreSQL (Neon)
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // NextAuth.js Models
@@ -43,7 +44,7 @@ model User {
   emailVerified DateTime?
   password      String
   role          String         @default("patient") // "patient", "therapist", or "admin"
-  image         String?        @db.LongText
+  image         String?        @db.Text
   isProfileComplete Boolean   @default(false) // Whether first-time registration info is filled
   isBanned      Boolean        @default(false)
   createdAt     DateTime       @default(now())
@@ -308,7 +309,7 @@ model TherapistProfile {
   degree          String   // e.g. "MD Psychiatry", "PhD Clinical Psychology"
   experience      String   // e.g. "5 years"
   hospitalAffiliation String @db.Text // LOR of Hospitals
-  photoUrl        String   @db.LongText // Compulsory photo (base64)
+  photoUrl        String   @db.Text // Compulsory photo (base64)
   isVerified      Boolean  @default(false) // Admin must verify
   verificationStatus String @default("pending") // "pending", "approved", "rejected"
   rejectionReason String?  @db.Text

@@ -80,7 +80,7 @@ interface ReplyData {
   content: string;
 }
 
-export function validateReplyData(data: ReplyData): ValidationResult {
+function validateReplyData(data: ReplyData): ValidationResult {
   if (!data.content || typeof data.content !== "string") {
     return { isValid: false, error: "Content is required." };
   }
