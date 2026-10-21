@@ -1,412 +1,419 @@
-# MindBridge AI
+# MindBridge AI 🧠🌿
 
-**AI-Powered Mental Health Platform** - A comprehensive mental health platform integrating AI-powered therapy, peer support, professional therapist management, and secure payment processing.
-
----
-
-## Overview
-
-MindBridge AI is a privacy-first mental health platform that combines cutting-edge AI technologies with evidence-based therapeutic approaches. The platform offers:
-
-- **AI Therapy Chat** - Emotion-aware AI responses with RAG integration
-- **Peer Support Community** - Anonymous posting and community-driven support
-- **Professional Dashboard** - Therapist management and patient analytics
-- **Appointment Scheduling** - Integrated calendar and telehealth video consultations
-- **Secure Payments** - Stripe-powered subscription management
+**Full-Stack AI-Powered Mental Health Platform & Telehealth Ecosystem**  
+*Empathetic AI Therapy with RAG · Computer Vision Emotion Telemetry · MentalBERT Severity Triage · Telehealth Video Sessions · Stripe Monetization · Peer Support Community*
 
 ---
 
-## Core Features
+## ⚡ Quick Start: How to Run the Project
 
-### AI Therapy Chat System
-- Emotion-aware messaging with sentiment tracking
-- RAG (Retrieval-Augmented Generation) integration for evidence-based responses
-- Multi-modal communication (text, speech-to-text, text-to-speech)
-- Avatar generation for enhanced engagement
+This section explains how to set up and run the **Frontend (Next.js)**, **AI Backend (FastAPI with Python `venv`)**, and **ML Backend (FastAPI with Python `venv`)**.
 
-### Peer Support Community
-- Anonymous posting and voting system
-- Threaded replies and discussions
-- Privacy-first design
+### 📋 Prerequisites
 
-### Professional Therapist Dashboard
-- Patient management and analytics
-- Session scheduling and status tracking
-- Virtual session setup with Google Calendar integration
-
-### Appointment Scheduling
-- Real-time availability checking
-- Automated calendar event creation
-- Secure telehealth meeting links
-
-### Subscription & Payment
-- Secure Stripe checkout
-- Webhook-based subscription management
-- Role-based access control (Patient, Therapist, Admin)
+Before starting, ensure you have the following installed on your machine:
+- **Node.js**: v18.0.0 or higher ([Download Node.js](https://nodejs.org/))
+- **Python**: v3.10 or v3.11 ([Download Python](https://www.python.org/downloads/))
+- **MySQL**: 8.0 or higher ([Download MySQL](https://dev.mysql.com/downloads/installer/))
+- **Git**: Installed and configured
 
 ---
 
-## Architecture
-
-```mermaid
-graph TB
-    subgraph "Frontend (Next.js)"
-        UI_Patient["Patient Dashboard"]
-        UI_Therapist["Therapist Dashboard"]
-        UI_Admin["Admin Dashboard"]
-        UI_Chat["Chat Interface"]
-        UI_Video["Video Interface"]
-    end
-    
-    subgraph "API Layer"
-        API_Auth["Auth API"]
-        API_Chat["Chat Messages"]
-        API_Therapy["Therapy Management"]
-        API_Analytics["Analytics"]
-        API_Payments["Checkout & Webhooks"]
-    end
-    
-    subgraph "Services"
-        AIBackend["AI Backend (FastAPI)"]
-        MLBackend["ML Analytics"]
-        Prisma["Prisma ORM"]
-    end
-    
-    subgraph "Data"
-        MySQL["MySQL Database"]
-        Pinecone["Pinecone Vector DB"]
-    end
-    
-    UI_Patient --> API_Chat
-    UI_Therapist --> API_Therapy
-    UI_Admin --> API_Analytics
-    UI_Chat --> API_Chat
-    API_Chat --> AIBackend
-    API_Chat --> Prisma
-    API_Therapy --> Prisma
-    AIBackend --> Pinecone
-    Prisma --> MySQL
-```
-
----
-
-## Tech Stack
-
-### Frontend
-| Technology | Purpose |
-|------------|---------|
-| Next.js 15.5 | App Router, SSR/SSG |
-| React 19 | UI Components |
-| TypeScript | Type Safety |
-| Tailwind CSS | Styling |
-| Radix UI | Accessible Components |
-| Recharts | Data Visualization |
-| NextAuth.js | Authentication |
-
-### Backend
-| Technology | Purpose |
-|------------|---------|
-| FastAPI | AI Backend API |
-| Python 3.x | Backend Services |
-| Uvicorn | ASGI Server |
-| Prisma | ORM |
-
-### AI/ML
-| Technology | Purpose |
-|------------|---------|
-| Groq SDK | AI Chat Responses |
-| LangChain | RAG Pipeline |
-| Pinecone | Vector Database |
-| ElevenLabs | Text-to-Speech |
-
-### Database & Services
-| Technology | Purpose |
-|------------|---------|
-| MySQL | Primary Database |
-| Stripe | Payment Processing |
-| Google Calendar | Appointment Scheduling |
-
----
-
-## Project Structure
-
-```
-MindBridge/
-├── WEBAPP/                    # Next.js Frontend
-│   ├── src/
-│   │   ├── app/              # App Router pages
-│   │   │   ├── api/          # API routes
-│   │   │   ├── patient/      # Patient dashboard
-│   │   │   ├── therapist/    # Therapist dashboard
-│   │   │   └── admin/        # Admin panel
-│   │   ├── components/       # React components
-│   │   ├── hooks/            # Custom hooks
-│   │   ├── lib/              # Utilities
-│   │   └── contexts/         # React contexts
-│   ├── prisma/               # Database schema
-│   └── public/               # Static assets
-│
-├── ai-backend/               # Python FastAPI Backend
-│   ├── services/             # AI services
-│   │   ├── groq_ai_service.py
-│   │   ├── tts_service.py
-│   │   └── avatar_service.py
-│   ├── rag/                  # RAG pipeline
-│   └── app.py                # FastAPI app
-│
-└── ml-backend/               # ML Analytics Service
-    └── app.py
-```
-
----
-
-## Quick Start
-
-### Prerequisites
-- Node.js 18+ and npm
-- Python 3.10+
-- MySQL 8.0+
-- MongoDB (for emotion analytics)
-
-### 1. Clone the Repository
+### Step 1: Clone the Repository
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/MindBridge-AI.git
 cd MindBridge-AI
 ```
 
-### 2. Frontend Setup
+---
 
-```bash
-cd WEBAPP
+### Step 2: Set Up the MySQL Database
 
-# Install dependencies
-npm install
-
-# Copy environment file
-copy .env.example .env
-
-# Configure your .env file with:
-# - DATABASE_URL (MySQL connection)
-# - NEXTAUTH_URL and NEXTAUTH_SECRET
-# - Google OAuth credentials
-# - AI_BACKEND_URL and ML_BACKEND_URL (optional)
-```
-
-### 3. Database Setup
-
-```bash
-# Create MySQL database
-mysql -u root -p -e "CREATE DATABASE mindbridge;"
-
-# Generate Prisma client and push schema
-npx prisma generate
-npx prisma db push
-
-# (Optional) Seed database
-npx prisma db seed
-
-# (Optional) Open Prisma Studio
-npx prisma studio
-```
-
-### 4. AI Backend Setup
-
-```bash
-cd ai-backend
-
-# Create virtual environment
-python -m venv venv
-.\venv\Scripts\activate  # Windows
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy environment file
-copy .env.example .env
-
-# Configure your .env with API keys:
-# - GROQ_API_KEY
-# - ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID
-# - GEMINI_API_KEY (optional)
-# - MONGODB_URL
-```
-
-### 5. Start Services
-
-**Terminal 1 - Frontend:**
-```bash
-cd WEBAPP
-npm run dev
-# Runs on http://localhost:3000
-```
-
-**Terminal 2 - AI Backend:**
-```bash
-cd ai-backend
-python app.py
-# Runs on http://localhost:8001
-```
-
-### 6. Verify Installation
-
-- Frontend: [http://localhost:3000](http://localhost:3000)
-- AI Backend Health: [http://localhost:8001/health](http://localhost:8001/health)
-- Sign in with Google OAuth
+1. Start your local MySQL service (via MySQL Workbench, Services, or Terminal).
+2. Create the database:
+   ```sql
+   CREATE DATABASE mindbridge;
+   ```
+3. Keep your MySQL credentials handy (`user`, `password`, `host: 3306`).
 
 ---
 
-## Environment Variables
+### Step 3: Run the AI Backend (FastAPI + Python `venv`)
 
-### Frontend (WEBAPP/.env)
+The AI Backend handles conversational AI (Gemini 2.0 / Groq), Pinecone RAG retrieval, ElevenLabs Text-to-Speech, and D-ID avatars on **Port 8001**.
 
+Open a new terminal:
+
+```bash
+# 1. Navigate to the AI Backend directory
+cd ai-backend
+
+# 2. Create a Python Virtual Environment
+python -m venv venv
+
+# 3. Activate the Virtual Environment
+# On Windows (PowerShell):
+.\venv\Scripts\Activate.ps1
+# If you get an execution policy error on Windows, run first:
+# Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# On Windows (Command Prompt):
+.\venv\Scripts\activate.bat
+
+# On macOS / Linux:
+source venv/bin/activate
+
+# 4. Upgrade pip and install dependencies
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+
+# 5. Configure Environment Variables
+# Copy the example file:
+cp .env.example .env   # Linux/macOS
+# or: copy .env.example .env  # Windows
+
+# Edit ai-backend/.env with your API keys:
+# GOOGLE_API_KEY="your-google-gemini-key"
+# GROQ_API_KEY="your-groq-key"              # Optional fallback
+# PINECONE_API_KEY="your-pinecone-key"      # For RAG
+# ELEVENLABS_API_KEY="your-elevenlabs-key"  # For Voice TTS
+# PORT=8001
+
+# 6. Start the AI Backend Server
+python app.py
+```
+> The AI Backend will start at: **`http://localhost:8001`**  
+> Test health: **`http://localhost:8001/health`**
+
+---
+
+### Step 4: Run the ML Backend (Emotion Detection + Severity Model)
+
+The ML Backend handles real-time facial emotion detection (OpenCV/PIL) and MentalBERT/ML severity triage on **Port 8002**.
+
+Open a second terminal:
+
+```bash
+# 1. Navigate to the ML Backend directory
+cd ml-backend
+
+# 2. Create a separate Python Virtual Environment
+python -m venv venv
+
+# 3. Activate the Virtual Environment
+# On Windows (PowerShell):
+.\venv\Scripts\Activate.ps1
+
+# On Windows (Command Prompt):
+.\venv\Scripts\activate.bat
+
+# On macOS / Linux:
+source venv/bin/activate
+
+# 4. Install dependencies
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+
+# 5. Start the ML Backend Server
+python app.py
+```
+> The ML Backend will start at: **`http://localhost:8002`**  
+> Test health: **`http://localhost:8002/health`**
+
+---
+
+### Step 5: Run the Frontend Application (`WEBAPP` Next.js)
+
+The Frontend is built with Next.js 15, React 19, TypeScript, and Prisma ORM on **Port 3000**.
+
+Open a third terminal:
+
+```bash
+# 1. Navigate to the frontend directory
+cd WEBAPP
+
+# 2. Install Node dependencies
+npm install
+
+# 3. Set up Frontend Environment Variables
+# Copy the example file:
+cp .env.example .env   # Linux/macOS
+# or: copy .env.example .env  # Windows
+```
+
+Ensure your `WEBAPP/.env` contains the required keys:
 ```env
-# Database
-DATABASE_URL="mysql://user:password@localhost:3306/mindbridge"
+# Database Connection (MySQL)
+DATABASE_URL="mysql://root:YOUR_PASSWORD@localhost:3306/mindbridge"
 
-# NextAuth
+# NextAuth Configuration
 NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="your-secret-key"
+NEXTAUTH_SECRET="generate_a_random_32_char_string"
 
-# Google OAuth
-GOOGLE_CLIENT_ID="your-client-id"
-GOOGLE_CLIENT_SECRET="your-client-secret"
+# Google OAuth (For Google Sign-In)
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
 
-# Backend URLs (optional)
-AI_BACKEND_URL="http://localhost:8001"
-ML_BACKEND_URL="http://localhost:5000"
+# Microservices URLs
+NEXT_PUBLIC_AI_BACKEND_URL="http://localhost:8001"
+NEXT_PUBLIC_ML_BACKEND_URL="http://localhost:8002"
 
-# Stripe (optional)
+# Stripe Payments (Optional for monetization testing)
 STRIPE_SECRET_KEY="sk_test_..."
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
 ```
 
-### AI Backend (ai-backend/.env)
+4. Push the Prisma database schema and generate the client:
+```bash
+npx prisma generate
+npx prisma db push
 
-```env
-# AI Services
-GROQ_API_KEY="gsk_..."
-GEMINI_API_KEY="..."          # Optional
-GEMINI_MODEL="gemini-pro"     # Optional
+# (Optional) Launch Prisma Studio GUI to inspect tables
+npx prisma studio
+```
 
-# Text-to-Speech
-ELEVENLABS_API_KEY="..."
-ELEVENLABS_VOICE_ID="..."
+5. Start the Next.js development server:
+```bash
+npm run dev
+```
+> Open your browser at: **`http://localhost:3000`**
 
-# Database
-MONGODB_URL="mongodb://localhost:27017/mindbridge"
+---
 
-# Server
-PORT=8001
-DEBUG=true
+### 🖥️ Quick Multi-Terminal Launch Cheat Sheet
+
+| Terminal | Path | Command | URL / Port |
+| :--- | :--- | :--- | :--- |
+| **Terminal 1: AI Backend** | `cd ai-backend` | `.\venv\Scripts\activate`<br/>`python app.py` | `http://localhost:8001` |
+| **Terminal 2: ML Backend** | `cd ml-backend` | `.\venv\Scripts\activate`<br/>`python app.py` | `http://localhost:8002` |
+| **Terminal 3: Frontend** | `cd WEBAPP` | `npm run dev` | `http://localhost:3000` |
+
+---
+
+## 🏛️ System Architecture
+
+MindBridge AI follows a modern, decoupled microservices architecture designed for low latency, patient data privacy, and real-time multi-modal streaming.
+
+```mermaid
+graph TB
+    subgraph "Frontend Layer (Next.js 15.5 + React 19)"
+        UI_Land["Spline 3D Landing Page"]
+        UI_Patient["Patient Dashboard & Virtual Room"]
+        UI_Therapist["Therapist Dashboard & Slot Manager"]
+        UI_Admin["Admin Verification & Moderation"]
+        UI_Peer["Anonymous Peer Support Community"]
+    end
+
+    subgraph "Application & Gateway Layer"
+        NextAuth["NextAuth.js (Google OAuth, JWT, RBAC)"]
+        API_Chat["Chat & Messages API"]
+        API_Sched["Appointment Scheduling API"]
+        API_Analytics["Clinical Analytics Engine"]
+        API_Stripe["Stripe Checkout & Webhooks"]
+    end
+
+    subgraph "AI & ML Microservices"
+        AI_Backend["AI Backend (FastAPI :8001)<br/>Gemini 2.0 / Groq LLaMA-3.1 + RAG"]
+        ML_Backend["ML Backend (FastAPI :8002)<br/>OpenCV Emotion + MentalBERT Classifier"]
+        TTS_Avatar["ElevenLabs Voice + D-ID Avatars"]
+    end
+
+    subgraph "Data & Persistence Layer"
+        MySQL["MySQL Database (Prisma ORM)"]
+        Pinecone["Pinecone Vector DB (Knowledge Base)"]
+    end
+
+    UI_Land --> NextAuth
+    UI_Patient --> API_Chat
+    UI_Patient --> API_Sched
+    UI_Patient --> API_Analytics
+    UI_Therapist --> API_Sched
+    UI_Therapist --> API_Analytics
+    UI_Admin --> NextAuth
+    UI_Peer --> MySQL
+
+    API_Chat --> AI_Backend
+    UI_Patient --> ML_Backend
+    AI_Backend --> Pinecone
+    AI_Backend --> TTS_Avatar
+    API_Chat --> MySQL
+    API_Sched --> API_Stripe
+    API_Stripe --> MySQL
+    API_Analytics --> MySQL
 ```
 
 ---
 
-## API Endpoints
+## 🌟 Core Features & Modules
 
-### Authentication
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/auth/signin` | GET | Sign in page |
-| `/api/auth/callback/google` | GET | Google OAuth callback |
+### 1. 🤖 Emotion-Aware AI Therapy (with RAG Grounding)
+- **Conversational Care**: Empathetic, therapeutic persona tailored for youth and adult stress, anxiety, and depression.
+- **RAG (Retrieval-Augmented Generation)**: Embeds validated mental health literature using HuggingFace sentence transformers stored in **Pinecone Vector Database**, injecting clinical context before response generation.
+- **Dual LLM Engine**: Native support for **Google Gemini 2.0 Flash** with fast fallback to **Groq (LLaMA-3.1-8B-Instant)**.
 
-### Chat
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/chat/messages` | GET | Get chat history |
-| `/api/chat/messages` | POST | Send message |
+### 2. 🎙️ Multi-Modal Voice & Avatar Therapy
+- **Interactive Speech**: Integrated Speech-to-Text (`useSpeechToText`) and Text-to-Speech (`useTextToSpeech`) powered by **ElevenLabs** for human-like emotional inflection.
+- **Virtual Presenters**: Synchronized talking avatar video generation via **D-ID API**.
+- **Audio Waveform Telemetry**: Real-time CSS/SVG audio pulse indicators reflecting speaking, processing, and listening states.
 
-### AI Backend
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/chat` | POST | AI therapy response |
-| `/tts` | POST | Text-to-speech |
-| `/avatar` | POST | Avatar video generation |
+### 3. 📹 Real-Time Computer Vision Emotion Telemetry
+- **Frame-by-Frame Emotion Detection**: Streams client webcam frames via base64 to the ML service; processes images via **OpenCV** to track 7 primary emotions (*happy, sad, angry, surprised, fear, disgust, neutral*).
+- **Session Emotion Aggregation**: Computes dominant emotion percentages per session, giving therapists non-verbal behavioral data.
+
+### 4. 📊 Clinical Severity Triage (MentalBERT & PHQ-9/GAD-7)
+- **MentalBERT Fine-Tuned NLP**: Fine-tuned on mental health corpus across a 5-point severity index (*Minimal, Mild, Moderate, Moderately Severe, Severe/Crisis*).
+- **Standardized Questionnaires**: Built-in 10-question standardized assessment combining clinical depression (PHQ-9) and anxiety (GAD-7) rubrics.
+- **Crisis Safeguards**: Automated high-weight (5.0) keyword detection for self-harm or suicidal intent, triggering safety disclaimers and emergency hotline prompts.
+
+### 5. 📅 Telehealth Consultations & Availability Manager
+- **Therapist Scheduling**: Weekly recurring slot editor and one-off session configurations.
+- **Google Calendar Sync**: Generates calendar invites and telehealth consultation links automatically.
+- **Collision Prevention**: Double-booking guards with real-time slot state management.
+
+### 6. 💳 Integrated Stripe Monetization
+- **Dynamic Pricing**: Tiered payment sessions based on consultation duration ($25 for 30m, $50 for 1h, $70 for 1.5h, $90 for 2h).
+- **Webhook Automation**: Cryptographically verifies `checkout.session.completed` events to atomically lock slots and issue booking receipts.
+
+### 7. 🛡️ Anonymous Peer Support Community
+- **Privacy-First Design**: Users post anonymously; identity is protected with **SHA-256 IP hashing** to prevent spam while guaranteeing confidentiality.
+- **Community Engagement**: Category tags (Anxiety, Depression, Loneliness, Academic), volunteer badges, threaded discussions, and upvoting.
+
+### 8. 👨‍⚕️ Therapist Credentialing & Admin Suite
+- **Verification Workflow**: Administrators verify degrees, medical licenses, hospital affiliations, and photo IDs before therapists can accept bookings.
+- **Clinical Analytics Dashboard**: Visualizes patient population trends, severity distributions, and session notes via **Recharts**.
 
 ---
 
-## Database Schema
+## 🏆 Why MindBridge AI Is Better (Key Differentiators)
+
+| Feature | Generic Chatbots (ChatGPT / Wrappers) | Traditional Telehealth (BetterHelp, etc.) | **MindBridge AI** |
+| :--- | :--- | :--- | :--- |
+| **Response Reliability** | Hallucinates advice; ungrounded answers | N/A (human only) | **RAG-Grounded** via Pinecone with clinical literature |
+| **Emotion Awareness** | Text prompt only | Manual patient reporting | **Multi-Modal**: Real-time OpenCV facial telemetry + voice analysis |
+| **Continuous Care** | No human doctor integration | Sessions are isolated events | **Hybrid Stepped-Care**: AI support between human doctor appointments |
+| **Crisis Intervention** | Unpredictable guardrails | Dependent on therapist availability | **Automated Crisis Trigger**: Immediate 5-level triage and safety escalation |
+| **Patient Privacy** | Tracks conversation identities | Requires real-name profiles | **Anonymous Peer Forum** with SHA-256 IP anonymization |
+| **Accessibility** | Text only | Scheduled video only | **Voice, Text, & Interactive Talking Avatars** available 24/7 |
+
+---
+
+## 💻 Tech Stack Summary
+
+```
+Frontend:
+├── Framework: Next.js 15.5.2 (App Router)
+├── Library: React 19.1.0 + TypeScript 5
+├── Styling: Tailwind CSS 4 + Radix UI Primitives + Lucide Icons
+├── 3D Canvas: Spline 3D Runtime (@splinetool/runtime)
+├── Data Viz: Recharts 3.2
+└── Authentication: NextAuth.js 4 (OAuth 2.0 & JWT)
+
+AI & ML Backends:
+├── Microservices: FastAPI (Python 3.10+) & Uvicorn ASGI
+├── LLMs: Google Gemini 2.0 Flash (`google-generativeai`) & Groq (`groq-sdk`)
+├── Vector DB & RAG: Pinecone & LangChain
+├── Computer Vision: OpenCV (cv2) & Pillow (PIL)
+├── NLP / Transformers: HuggingFace Transformers (MentalBERT) & Scikit-learn
+└── Audio / Video AI: ElevenLabs API (Voice Synthesis) & D-ID (Talking Avatar)
+
+Data & Infrastructure:
+├── Database: MySQL 8.0
+├── ORM: Prisma ORM 6.1
+├── Payments: Stripe Node SDK & Webhooks
+└── Utilities: Nodemailer (OTP Recovery), bcryptjs, Zod
+```
+
+---
+
+## 🗄️ Database Schema Overview (Prisma ORM)
 
 ```mermaid
 erDiagram
-    USER ||--o{ ACCOUNT : has
-    USER ||--o{ SESSION : has
-    USER ||--o{ CHAT_SESSION : owns
-    CHAT_SESSION ||--o{ CHAT_MESSAGE : contains
-    USER ||--o{ THERAPY_SESSION : participates
-    USER ||--o{ APPOINTMENT : schedules
-    USER ||--o{ PATIENT_PROFILE : has
-    USER ||--o{ THERAPIST_PROFILE : has
-    USER ||--o{ MENTAL_HEALTH_ANALYTICS : tracks
-    PEER_SUPPORT_POST ||--o{ REPLY : receives
+    User ||--o{ Account : "authenticates"
+    User ||--o{ Session : "holds"
+    User ||--o{ ChatSession : "initiates"
+    ChatSession ||--o{ ChatMessage : "contains"
+    User ||--o{ TherapySession : "participates (patient/therapist)"
+    User ||--o{ Appointment : "schedules"
+    User ||--o{ TherapistAvailability : "defines"
+    User ||--o| PatientProfile : "has"
+    User ||--o| TherapistProfile : "verifies"
+    User ||--o{ MentalHealthAnalytics : "tracks"
+    User ||--o{ AssessmentSession : "completes"
+    PeerSupportPost ||--o{ Reply : "receives"
 ```
 
+### Key Models:
+- `User`: Central entity with RBAC roles (`patient`, `therapist`, `admin`).
+- `TherapistProfile`: Stores degrees, hospital affiliation LORs, photo proof, and admin verification status (`pending`, `approved`, `rejected`).
+- `TherapistAvailability`: Manages recurring weekday slots (0=Sun..6=Sat) or specific date overrides with `isBooked` flags.
+- `Appointment`: Links patient, therapist, availability slot, Google Calendar event ID, status, and duration.
+- `MentalHealthAnalytics`: Daily aggregated time-series telemetry (mental health level 1–5, detected keyword vectors, positive/negative ratios).
+- `AssessmentSession`: Standardized PHQ-9/GAD-7 Q&A scores and clinical evaluation outcomes.
+- `PeerSupportPost` & `Reply`: Anonymous community forum with IP hash tracking for privacy.
+
 ---
 
-## User Roles
+## 🛠️ API Reference
 
-| Role | Access |
-|------|--------|
-| **Patient** | Chat, Appointments, Analytics, Peer Support |
-| **Therapist** | Patient Management, Scheduling, Virtual Sessions |
-| **Admin** | User Management, Analytics, Therapist Verification |
+### Next.js API Routes (`WEBAPP`)
+| Method | Route | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/auth/[...nextauth]` | OAuth & Credentials authentication |
+| `GET`/`POST` | `/api/chat/messages` | Fetch chat history or save a message |
+| `GET`/`POST` | `/api/analytics` | Retrieve time-series clinical analytics or trigger chat re-analysis |
+| `POST` | `/api/analytics/assess` | Submit PHQ-9/GAD-7 assessment answers and compute severity |
+| `POST` | `/api/checkout` | Create Stripe Checkout session for therapist appointment |
+| `POST` | `/api/webhook/stripe` | Stripe signature-verified appointment fulfillment |
+| `GET`/`POST` | `/api/peer-support` | Read or publish anonymous peer support discussions |
+
+### AI Backend (`FastAPI :8001`)
+| Method | Route | Description |
+| :--- | :--- | :--- |
+| `GET` | `/health` | Health check and service readiness |
+| `POST` | `/chat` | Generates RAG-grounded therapy responses via Gemini 2.0 / Groq |
+| `POST` | `/tts` | Synthesizes therapeutic speech using ElevenLabs API |
+| `POST` | `/avatar` | Generates synchronized talking avatar video via D-ID |
+
+### ML Backend (`FastAPI :8002`)
+| Method | Route | Description |
+| :--- | :--- | :--- |
+| `GET` | `/health` | Service status check |
+| `POST` | `/detect_emotion` | Accepts base64 video frame; returns emotion breakdown & dominant score |
+| `POST` | `/detect_emotion_file` | Accepts uploaded image file for emotion inference |
+| `GET` | `/emotions` | Lists recognized emotion classes (7 states) |
 
 ---
 
-## Troubleshooting
+## 🔧 Troubleshooting & FAQ
 
-### MySQL Connection Issues
+#### 1. Windows PowerShell Virtual Environment Activation Error:
+If you see `execution of scripts is disabled on this system`:
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+#### 2. Prisma Database Push Fails:
+Ensure your MySQL service is running and `DATABASE_URL` in `WEBAPP/.env` has correct credentials:
 ```bash
-# Verify MySQL is running
-mysql -u root -p
-
-# Check DATABASE_URL format
-# mysql://USER:PASSWORD@HOST:PORT/DATABASE
+# Verify connection
+npx prisma db push --preview-feature
 ```
 
-### Prisma Errors
-```bash
-# Regenerate client
-npx prisma generate
+#### 3. AI Backend Fails on Windows Multiprocessing:
+The project already includes `multiprocessing.set_start_method("spawn", force=True)` in `ai-backend/app.py` to prevent Windows-specific ASGI worker fork errors.
 
-# Reset database (warning: deletes data)
-npx prisma migrate reset
-```
-
-### OAuth Redirect Mismatch
-- Ensure `NEXTAUTH_URL` matches your OAuth redirect URI
-- Add `http://localhost:3000/api/auth/callback/google` to Google Cloud Console
-
-### AI Backend Not Responding
-- Check all API keys are set
-- Verify Python environment is activated
-- Check port 8001 is available
+#### 4. Google OAuth Redirect URI Mismatch:
+Make sure `http://localhost:3000/api/auth/callback/google` is added to your Authorized Redirect URIs in Google Cloud Console.
 
 ---
 
-## Contributing
+## 📄 License
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## Support
-
-For support, please open an issue in the GitHub repository.
-
----
-
-**Built with care for mental health awareness and accessibility.**
+**Built with care for accessible, ethical, and clinical-grade mental healthcare.**
