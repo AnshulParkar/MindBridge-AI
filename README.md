@@ -28,14 +28,11 @@ cd MindBridge-AI
 
 ---
 
-### Step 2: Set Up the MySQL Database
+### Step 2: Set Up the Database (PostgreSQL / Neon or MySQL)
 
-1. Start your local MySQL service (via MySQL Workbench, Services, or Terminal).
-2. Create the database:
-   ```sql
-   CREATE DATABASE mindbridge;
-   ```
-3. Keep your MySQL credentials handy (`user`, `password`, `host: 3306`).
+MindBridge uses **Prisma ORM** configured for PostgreSQL (e.g., [Neon Cloud Postgres](https://neon.tech)) or MySQL:
+- **Option A (Neon PostgreSQL - Recommended)**: Create a free Neon project, copy your connection string (`DATABASE_URL` and `DIRECT_URL`), and paste them into `WEBAPP/.env`.
+- **Option B (Local MySQL / Postgres)**: Create your local database (`CREATE DATABASE mindbridge;`) and configure your connection URL in `WEBAPP/.env`.
 
 ---
 
